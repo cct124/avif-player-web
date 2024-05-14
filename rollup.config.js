@@ -1,4 +1,5 @@
 import typescript from '@rollup/plugin-typescript';
+import inlineWorker from './build/rollup-plugin-inline-worker.js';
 
 export default [
     {
@@ -16,6 +17,6 @@ export default [
         watch: {
             include: "src/**",
         },
-        plugins: [typescript()]
+        plugins: [inlineWorker(), typescript()]
     }
 ];

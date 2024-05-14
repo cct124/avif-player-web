@@ -1,1 +1,4 @@
-export declare function log(): void;
+export default class Libavif {
+    worker: Worker;
+    constructor();
+}
