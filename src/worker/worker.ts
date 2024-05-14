@@ -1,4 +1,4 @@
-onmessage = (e) => {
+onmessage = (e: any) => {
   console.log("Worker: Message received from main script");
   const result = e.data[0] * e.data[1];
   if (isNaN(result)) {

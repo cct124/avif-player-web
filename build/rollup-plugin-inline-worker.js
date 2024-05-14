@@ -21,8 +21,11 @@ export default function inlineWorker() {
             if (id.endsWith('worker.ts')) {
                 if (existsSync(id) && !id.endsWith('/')) {
                     const code = readFileSync(id, 'utf-8');
-                    const output = await minify(code)
-                    console.log(output.code);
+                    // 使用 TypeScript API 编译
+                    const { outputText } = ts.transpileModule(code, {
+                        compilerOptions: { module: ts.ModuleKind.ESNext },
+                    });
+                    const output = await minify(outputText)
                     return `export default ${JSON.stringify(output.code.replace(/export default.*/, ''))};`;
                 } else {
                     this.error(`File not found or is a directory: ${id}`);
