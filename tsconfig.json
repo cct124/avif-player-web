@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "ES2015",
+    "lib": [
+      "dom",
+      "esnext"
+    ],
+    "declaration": true,
+    "outDir": "./lib",
+    "sourceMap": false,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "moduleResolution": "node",
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+  ],
+  "exclude": [
+    "node_modules",
+  ]
+}

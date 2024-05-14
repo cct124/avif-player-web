@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sources":["../src/index.ts"],"sourcesContent":["export function log() {\n    console.log(\"Test\");\n}\n"],"names":[],"mappings":"AAAO,SAAS,GAAG,GAAG;AACtB,IAAI,OAAO,CAAC,GAAG,CAAC,MAAM,CAAC,CAAC;AACxB;;;;"}

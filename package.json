@@ -1,0 +1,27 @@
+{
+  "name": "soft-avif-web",
+  "version": "0.0.1",
+  "description": "软解AVIF",
+  "main": "./lib/index.js",
+  "browser": "./lib/index.js",
+  "typings": "./lib/index.d.ts",
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "npm run build:ts && npm run build:js",
+    "build:js": "rollup -c",
+    "build:ts": "tsc && tsc --build ./tsconfig-cmj.json",
+    "pub": "npm publish --registry http://10.50.0.105:9001/",
+    "patch": "npm version patch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.13.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.2"
+  },
+  "type": "module"
+}
