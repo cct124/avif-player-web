@@ -1,8 +1,11 @@
-import { EventMap, MessageType } from "../MessageType.js";
+import {
+  WorkerEventMap,
+  WorkerMessageChannel,
+} from "../types/WorkerMessageType";
 import avifDecodeFileWeb from "../Libavif/avifDecodeFileWeb.min.js";
 import { WorkerEventEmitter } from "../Observer/index";
 
-const channel = new WorkerEventEmitter<EventMap>();
+const channel = new WorkerEventEmitter<WorkerEventMap>();
 
 let AvifDecodeFileWeb;
 initialAvifDecodeFileWeb();
@@ -16,7 +19,7 @@ async function initialAvifDecodeFileWeb() {
   const version = AvifDecodeFileWeb.UTF8ToString(
     AvifDecodeFileWeb._avifVersion()
   );
-  channel.send(MessageType.initial, version);
+  channel.send(WorkerMessageChannel.initial, version);
 }
 
 export default "";

@@ -13,3 +13,17 @@ export declare class WorkerEventEmitter<M> {
     on<T extends keyof M>(channel: T, handler: (data: M[T]) => void): void;
     private listen;
 }
+export declare class Observer<M> {
+    private eventListeners;
+    constructor();
+    on<T extends keyof M>(channel: T, handler: (data: M[T]) => void): this;
+    emit<T extends keyof M>(channel: T, data: M[T]): this;
+    /**
+     * 为给定事件添加一次性侦听器。
+     * @param channel 频道
+     * @param listener 事件回调
+     * @returns
+     */
+    once<T extends keyof M>(channel: T, listener: (this: this, ev: M[T]) => void): this;
+    clear<T extends keyof M>(channel: T, handler: (data: M[T]) => void): boolean;
+}

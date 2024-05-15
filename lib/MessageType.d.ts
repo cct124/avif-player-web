@@ -1,16 +1,16 @@
-export declare enum MessageType {
+export interface MessageEvent<T, E> {
+    type: T;
+    event: E;
+}
+export declare enum WorkerMessageType {
     initial = 1,
     fileLoadedSuccessfully = 0
-}
-export interface MessageEvent<T> {
-    type: MessageType;
-    event: T;
 }
 export interface FileLoadedSuccessfully {
     name: string;
     arrayBufff: Uint8Array;
 }
-export interface EventMap {
-    [MessageType.fileLoadedSuccessfully]: MessageEvent<FileLoadedSuccessfully>;
-    [MessageType.initial]: MessageEvent<string>;
+export interface WorkerEventMap {
+    [WorkerMessageType.fileLoadedSuccessfully]: MessageEvent<WorkerMessageType, FileLoadedSuccessfully>;
+    [WorkerMessageType.initial]: MessageEvent<WorkerMessageType, string>;
 }
