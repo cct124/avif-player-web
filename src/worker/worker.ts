@@ -1,13 +1,22 @@
-onmessage = (e: any) => {
-  console.log("Worker: Message received from main script");
-  const result = e.data[0] * e.data[1];
-  if (isNaN(result)) {
-    postMessage("Please write two numbers");
-  } else {
-    const workerResult = "Result: " + result;
-    console.log("Worker: Posting message back to main script");
-    postMessage(workerResult);
-  }
-};
+import { EventMap, MessageType } from "../MessageType.js";
+import avifDecodeFileWeb from "../libavif/avifDecodeFileWeb.min.js";
+import { WorkerEventEmitter } from "../observer/index";
+
+const channel = new WorkerEventEmitter<typeof EventMap>();
+
+let AvifDecodeFileWeb;
+initialAvifDecodeFileWeb();
+
+// onmessage = async (e: any) => {
+//   console.log(e);
+// };
+
+async function initialAvifDecodeFileWeb() {
+  AvifDecodeFileWeb = await avifDecodeFileWeb();
+  const version = AvifDecodeFileWeb.UTF8ToString(
+    AvifDecodeFileWeb._avifVersion()
+  );
+  channel.send(MessageType.initial, version);
+}
 
 export default "";
