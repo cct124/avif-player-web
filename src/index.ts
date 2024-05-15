@@ -1,5 +1,5 @@
-import workerScript from "./Workers/worker";
-import { MainEventEmitter } from "./Observers/index";
+import workerScript from "./Worker/worker";
+import { MainEventEmitter } from "./Observer/index";
 import { EventMap, MessageType } from "./MessageType";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });

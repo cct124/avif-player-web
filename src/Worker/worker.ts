@@ -1,6 +1,6 @@
 import { EventMap, MessageType } from "../MessageType.js";
-import avifDecodeFileWeb from "../Libavifs/avifDecodeFileWeb.min.js";
-import { WorkerEventEmitter } from "../Observers/index";
+import avifDecodeFileWeb from "../Libavif/avifDecodeFileWeb.min.js";
+import { WorkerEventEmitter } from "../Observer/index";
 
 const channel = new WorkerEventEmitter<EventMap>();
 

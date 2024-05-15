@@ -3,7 +3,7 @@ import inlineWorker from './build/rollup-plugin-inline-worker.js';
 
 export default [
     {
-        input: 'src/Workers/worker.ts',
+        input: 'src/Worker/worker.ts',
         output: [
             {
                 dir: 'lib',

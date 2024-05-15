@@ -1,4 +1,4 @@
-import { MainEventEmitter } from "./Observers/index";
+import { MainEventEmitter } from "./Observer/index";
 import { EventMap } from "./MessageType";
 export default class SoftAvifWeb {
     worker: MainEventEmitter<EventMap>;
