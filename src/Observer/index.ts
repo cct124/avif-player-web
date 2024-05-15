@@ -11,8 +11,12 @@ export class MainEventEmitter<M> {
     };
   }
 
-  send<T extends keyof M>(channel: T, data: M[T]) {
-    this.worker.postMessage({ channel: channel, data });
+  sendArrayBuffer<T extends keyof M>(channel: T, arrayBuffer: ArrayBuffer) {
+    this.worker.postMessage({ channel: channel, arrayBuffer }, [arrayBuffer]);
+  }
+
+  send<T extends keyof M>(channel: T, data: M[T], ...args: any[]) {
+    this.worker.postMessage({ channel: channel, data }, ...args);
   }
 
   on<T extends keyof M>(channel: T, handler: (data: M[T]) => void) {
@@ -41,11 +45,13 @@ export class WorkerEventEmitter<M> {
   private eventListeners = new Map<keyof M, Set<(data: any) => void>>();
 
   constructor() {
-    onmessage = this.listen;
+    onmessage = (...args) => {
+      this.listen(...args);
+    };
   }
 
-  send<T extends keyof M>(channel: T, data: M[T]) {
-    postMessage({ channel, data });
+  send<T extends keyof M>(channel: T, data: M[T], ...args: any[]) {
+    postMessage({ channel, data }, ...args);
   }
 
   on<T extends keyof M>(channel: T, handler: (data: M[T]) => void) {

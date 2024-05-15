@@ -1,14 +1,14 @@
+import MD5 from "crypto-js/md5";
 import workerScript from "./Worker/worker";
-import { MainEventEmitter } from "./Observer/index";
 import DecoderManager from "./DecoderManager/index";
 import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
-import { WorkerEventMap } from "./types/WorkerMessageType";
 import { deepMixins } from "./utils";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });
 const workerDecoderUrl = URL.createObjectURL(blob);
 
 export default class SoftAvifWeb {
+  url: string | Uint8Array;
   /**
    * 可选配置
    */
@@ -20,7 +20,7 @@ export default class SoftAvifWeb {
   /**
    * avif的Uint8Array文件数据
    */
-  private avifFileUint8Array?: Uint8Array;
+  private avifFileArrayBuffer?: ArrayBuffer;
   /**
    * 解码数据唯一值
    */
@@ -36,19 +36,30 @@ export default class SoftAvifWeb {
     } else if (canvas instanceof Object) {
       option = canvas;
     }
-    this.option = deepMixins(option, {});
+    this.option = deepMixins(option, {
+      decodeImmediately: true,
+    } as SoftAvifWebOptions);
     this.checkConstructor(url, this.option);
     if (window._SoftAvifWebDecoderManager) {
+      this.decoderManager = window._SoftAvifWebDecoderManager;
+    } else {
       this.decoderManager = window._SoftAvifWebDecoderManager =
         new DecoderManager(workerDecoderUrl);
-    } else {
-      this.decoderManager = window._SoftAvifWebDecoderManager;
     }
-    this.decoder(url);
+    this.url = url;
+    if (this.option.decodeImmediately) {
+      this.decoder(this.url);
+    }
   }
 
-  async decoder(url: string | Uint8Array) {
-    this.avifFileUint8Array = await this.fillArrayBuffer(url);
+  play() {
+    this.decoder(this.url);
+  }
+
+  private async decoder(url: string | ArrayBuffer) {
+    this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
+    this.decodeSymbolId = MD5(url as string).toString();
+    this.decoderManager.decoder(this.decodeSymbolId, this.avifFileArrayBuffer);
   }
 
   /**
@@ -56,18 +67,17 @@ export default class SoftAvifWeb {
    * @param url
    * @returns
    */
-  private async fillArrayBuffer(url: string | Uint8Array) {
+  private async fillArrayBuffer(url: string | ArrayBuffer) {
     if (typeof url === "string") {
-      const arrayBuffer = await this.fetchFileArrayBuffer(url);
-      return new Uint8Array(arrayBuffer);
-    } else if (url instanceof Uint8Array) {
+      return await this.fetchFileArrayBuffer(url);
+    } else if (url instanceof ArrayBuffer) {
       return url;
     } else {
       throw new Error("请传入文件Url或Uint8Array数据对象");
     }
   }
 
-  async fetchFileArrayBuffer(url: string) {
+  private async fetchFileArrayBuffer(url: string) {
     const res = await fetch(url);
     return await res.arrayBuffer();
   }

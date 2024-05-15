@@ -1,5 +1,6 @@
 import typescript from '@rollup/plugin-typescript';
 import inlineWorker from './build/rollup-plugin-inline-worker.js';
+import terser from '@rollup/plugin-terser';
 
 export default [
     {

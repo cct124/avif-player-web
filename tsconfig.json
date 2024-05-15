@@ -19,6 +19,7 @@
     "index.d.ts",
   ],
   "exclude": [
+    "lib",
     "node_modules",
   ]
 }

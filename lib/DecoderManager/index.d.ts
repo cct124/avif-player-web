@@ -1,12 +1,12 @@
-import { MainEventEmitter } from "../Observer";
-import { WorkerEventMap } from "../types/WorkerMessageType";
+import Decoder from "../Decoder";
 import WorkerManager from "../WorkerManager/index";
 export default class DecoderManager {
     workerDecoderUrl: string;
     /**
      * 解码器集合
      */
-    decoderWorkers: WorkerManager<MainEventEmitter<WorkerEventMap>>;
+    decoders: WorkerManager<Decoder>;
     constructor(workerDecoderUrl: string);
-    decoder(id: string, arrayBuffer: Uint8Array): Promise<void>;
+    initialDecoder(id: string): Promise<Decoder>;
+    decoder(id: string, arrayBuffer: ArrayBuffer): Promise<void>;
 }
