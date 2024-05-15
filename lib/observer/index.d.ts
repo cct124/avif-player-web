@@ -6,12 +6,10 @@ export declare class MainEventEmitter<M> {
     on<T extends keyof M>(channel: T, handler: (data: M[T]) => void): void;
     private listen;
 }
-export declare class WorkerEventEmitter<E extends {
-    [key: number]: E[keyof E];
-}> {
+export declare class WorkerEventEmitter<M> {
     private eventListeners;
     constructor();
-    send(channel: keyof E, data: E[keyof E]): void;
-    on(channel: keyof E, handler: (data: E[keyof E]) => void): void;
+    send<T extends keyof M>(channel: T, data: M[T]): void;
+    on<T extends keyof M>(channel: T, handler: (data: M[T]) => void): void;
     private listen;
 }

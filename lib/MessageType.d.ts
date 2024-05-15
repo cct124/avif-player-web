@@ -10,13 +10,7 @@ export interface FileLoadedSuccessfully {
     name: string;
     arrayBufff: Uint8Array;
 }
-export declare const EventMap: {
-    0: {
-        new (type: string, eventInitDict?: MessageEventInit<FileLoadedSuccessfully> | undefined): globalThis.MessageEvent<FileLoadedSuccessfully>;
-        prototype: globalThis.MessageEvent<any>;
-    };
-    1: {
-        new (type: string, eventInitDict?: MessageEventInit<string> | undefined): globalThis.MessageEvent<string>;
-        prototype: globalThis.MessageEvent<any>;
-    };
-};
+export interface EventMap {
+    [MessageType.fileLoadedSuccessfully]: MessageEvent<FileLoadedSuccessfully>;
+    [MessageType.initial]: MessageEvent<string>;
+}

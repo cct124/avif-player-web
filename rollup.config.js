@@ -3,7 +3,7 @@ import inlineWorker from './build/rollup-plugin-inline-worker.js';
 
 export default [
     {
-        input: 'src/worker/worker.ts',
+        input: 'src/Workers/worker.ts',
         output: [
             {
                 dir: 'lib',
@@ -12,12 +12,6 @@ export default [
                 sourcemap: true,
             }
         ],
-        watch: {
-            include: [
-                "src/**",
-                "src/index.ts"
-            ],
-        },
         plugins: [typescript()]
     },
     {
@@ -30,12 +24,6 @@ export default [
                 freeze: true,
             }
         ],
-        watch: {
-            include: [
-                "src/**",
-                "src/worker/worker.ts"
-            ],
-        },
         plugins: [inlineWorker(), typescript()]
     },
 ];

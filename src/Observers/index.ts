@@ -33,18 +33,18 @@ export class MainEventEmitter<M> {
   }
 }
 
-export class WorkerEventEmitter<E extends { [key: number]: E[keyof E] }> {
-  private eventListeners = new Map<keyof E, Set<(data: E[keyof E]) => void>>();
+export class WorkerEventEmitter<M> {
+  private eventListeners = new Map<keyof M, Set<(data: any) => void>>();
 
   constructor() {
     onmessage = this.listen;
   }
 
-  send(channel: keyof E, data: E[keyof E]) {
+  send<T extends keyof M>(channel: T, data: M[T]) {
     postMessage({ channel, data });
   }
 
-  on(channel: keyof E, handler: (data: E[keyof E]) => void) {
+  on<T extends keyof M>(channel: T, handler: (data: M[T]) => void) {
     if (this.eventListeners.has(channel)) {
       const listeners = this.eventListeners.get(channel)!;
       listeners.add(handler);

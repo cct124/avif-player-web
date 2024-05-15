@@ -13,7 +13,7 @@ export interface FileLoadedSuccessfully {
   arrayBufff: Uint8Array;
 }
 
-export const EventMap = {
-  [MessageType.fileLoadedSuccessfully]: MessageEvent<FileLoadedSuccessfully>,
-  [MessageType.initial]: MessageEvent<string>,
-};
+export interface EventMap {
+  [MessageType.fileLoadedSuccessfully]: MessageEvent<FileLoadedSuccessfully>;
+  [MessageType.initial]: MessageEvent<string>;
+}
