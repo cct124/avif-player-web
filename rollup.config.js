@@ -13,7 +13,7 @@ export default [
                 sourcemap: true,
             }
         ],
-        plugins: [typescript()]
+        plugins: [typescript(), terser()]
     },
     {
         input: 'src/index.ts',

@@ -22,3 +22,9 @@ export declare function deepMixins<T extends {
 }>(obj2: T, obj1: {
     [key: string]: any;
 }): T;
+/**
+ * 基于 [requestAnimationFrame](https://developer.mozilla.org/zh-CN/docs/Web/API/window/requestAnimationFrame) 实现的定时器
+ * @param callback
+ * @param ms
+ */
+export declare function timeout(callback: (elapsed: number) => void, ms?: number): void;

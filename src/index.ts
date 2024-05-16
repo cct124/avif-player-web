@@ -3,6 +3,12 @@ import workerScript from "./Worker/worker";
 import DecoderManager from "./DecoderManager/index";
 import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
 import { deepMixins } from "./utils";
+import Play from "./Play";
+import {
+  DecoderChannel,
+  WorkerAvifDecoderMessageChannel,
+} from "./types/WorkerMessageType";
+import { Observer } from "./Observer";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });
 const workerDecoderUrl = URL.createObjectURL(blob);
@@ -26,6 +32,8 @@ export default class SoftAvifWeb {
    */
   decodeSymbolId?: string;
 
+  private avifPlay: Play<Observer<DecoderChannel>>;
+
   constructor(
     url: string | Uint8Array,
     canvas: string | HTMLCanvasElement | SoftAvifWebOptions,
@@ -36,9 +44,15 @@ export default class SoftAvifWeb {
     } else if (canvas instanceof Object) {
       option = canvas;
     }
+
     this.option = deepMixins(option, {
       decodeImmediately: true,
     } as SoftAvifWebOptions);
+    if (typeof this.option.canvas === "string") {
+      this.option.canvas = document.getElementById(
+        this.option.canvas
+      ) as HTMLCanvasElement;
+    }
     this.checkConstructor(url, this.option);
     if (window._SoftAvifWebDecoderManager) {
       this.decoderManager = window._SoftAvifWebDecoderManager;
@@ -46,7 +60,9 @@ export default class SoftAvifWeb {
       this.decoderManager = window._SoftAvifWebDecoderManager =
         new DecoderManager(workerDecoderUrl);
     }
+
     this.url = url;
+    this.avifPlay = new Play(this.option.canvas as HTMLCanvasElement);
     if (this.option.decodeImmediately) {
       this.decoder(this.url);
     }
@@ -59,7 +75,25 @@ export default class SoftAvifWeb {
   private async decoder(url: string | ArrayBuffer) {
     this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
     this.decodeSymbolId = MD5(url as string).toString();
-    this.decoderManager.decoder(this.decodeSymbolId, this.avifFileArrayBuffer);
+    const decoder = await this.decoderManager.decoder(this.decodeSymbolId);
+    this.avifPlay.setDecoder(decoder);
+    // const res = await decoder.decoder(this.avifFileArrayBuffer);
+    // decoder.on(WorkerAvifDecoderMessageChannel.avifDecoderNextImage, (data) => {
+    //   this.avifPlay.playDecoderFrame(data);
+    // });
+
+    // decoder.on(WorkerAvifDecoderMessageChannel.decoderImageData, (data) => {
+    //   this.avifPlay.playDecoderFrame(data);
+    // });
+    // if (decoder.decodingComplete) {
+    //   this.avifPlay.setFrames(decoder.cacheFrameDatas, decoder.imageCount);
+    //   this.avifPlay.playCacheFrames();
+    // } else {
+    //   decoder.decoder(this.avifFileArrayBuffer);
+    //   decoder.on(WorkerAvifDecoderMessageChannel.decoderImageData, (data) => {
+    //     this.avifPlay.playDecoderFrame(data);
+    //   });
+    // }
   }
 
   /**

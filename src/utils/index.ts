@@ -35,3 +35,22 @@ export function deepMixins<T extends { [key: string]: any }>(
   }
   return obj1 as T;
 }
+
+/**
+ * 基于 [requestAnimationFrame](https://developer.mozilla.org/zh-CN/docs/Web/API/window/requestAnimationFrame) 实现的定时器
+ * @param callback
+ * @param ms
+ */
+export function timeout(callback: (elapsed: number) => void, ms = 0) {
+  let start: number;
+  function step(timestamp: number) {
+    if (start === undefined) start = timestamp;
+    const elapsed = timestamp - start;
+    if (elapsed < ms) {
+      window.requestAnimationFrame(step);
+    } else {
+      return callback(elapsed);
+    }
+  }
+  window.requestAnimationFrame(step);
+}

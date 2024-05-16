@@ -1,7 +1,8 @@
 import { MainEventEmitter } from "../Observer";
 import {
-  WorkerEventMap,
-  WorkerMessageChannel,
+  DecoderImageData,
+  WorkerAvifDecoderEventMap,
+  WorkerAvifDecoderMessageChannel,
 } from "../types/WorkerMessageType";
 import Decoder from "../Decoder";
 import WorkerManager from "../WorkerManager/index";
@@ -22,17 +23,18 @@ export default class DecoderManager {
         resolve(this.decoders.get(id)!);
       } else {
         const decoder = new Decoder(this.workerDecoderUrl);
-        decoder.on(WorkerMessageChannel.initial, (version) => {
+        decoder.onmessage(WorkerAvifDecoderMessageChannel.initial, (version) => {
+          this.decoders.add(id, decoder);
           resolve(decoder);
         });
       }
     });
   }
 
-  async decoder(id: string, arrayBuffer: ArrayBuffer) {
-    const decoder = await this.initialDecoder(id);
-    decoder.send(WorkerMessageChannel.submitDecoding, arrayBuffer, [
-      arrayBuffer,
-    ]);
+  async decoder(id: string) {
+    return new Promise<Decoder>(async (resolve, reject) => {
+      const decoder = await this.initialDecoder(id);
+      resolve(decoder);
+    });
   }
 }

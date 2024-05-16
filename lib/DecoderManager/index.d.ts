@@ -8,5 +8,5 @@ export default class DecoderManager {
     decoders: WorkerManager<Decoder>;
     constructor(workerDecoderUrl: string);
     initialDecoder(id: string): Promise<Decoder>;
-    decoder(id: string, arrayBuffer: ArrayBuffer): Promise<void>;
+    decoder(id: string): Promise<Decoder>;
 }

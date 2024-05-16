@@ -17,6 +17,7 @@ export default class SoftAvifWeb {
      * 解码数据唯一值
      */
     decodeSymbolId?: string;
+    private avifPlay;
     constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | SoftAvifWebOptions, option?: SoftAvifWebOptions);
     play(): void;
     private decoder;
