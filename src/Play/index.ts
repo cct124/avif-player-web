@@ -1,15 +1,16 @@
-import Decoder from "../Decoder";
+import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import {
   DecoderImageData,
   WorkerAvifDecoderMessageChannel,
   DecoderChannel,
+  DecoderEventMap,
 } from "../types/WorkerMessageType";
 import { timeout } from "../utils";
 import { PlayChannelType } from "./type";
 
 export default class Play<
-  D extends Observer<DecoderChannel>
+  D extends Decoder<DecoderEventMap>
 > extends Observer<PlayChannelType> {
   decoder?: D;
   canvas: HTMLCanvasElement;
@@ -31,31 +32,39 @@ export default class Play<
 
   play() {
     if (this.decoder) {
+      this.index = 0;
+      this.update(this.decoder);
     } else {
       throw new Error("未设置解码器对象");
     }
   }
 
-  async update(decoder: Decoder) {
+  async update(decoder: D) {
+    this.lastTimestamp = performance.now();
     while (this.index < decoder.imageCount) {
-      let imageData = decoder.frames[this.index];
+      const imageData = decoder.frames[this.index];
       if (imageData === 0) {
         await this.awaitNextFrameDecode(decoder);
       } else {
-        imageData = decoder.frames[this.index];
-        // const delay = this.lastTimestamp
-        //   ? imageData.pts * 1000 - this.lastTimestamp
-        //   : 0;
+        const t2 = performance.now();
+        const decodeTime = t2 - this.lastTimestamp;
+        const imageData = decoder.frames[this.index] as DecoderImageData;
+        const delay = this.index ? imageData.duration * 1000 - decodeTime : 0;
+        this.index++;
+        console.log(decodeTime, imageData.duration * 1000, delay);
+        if (delay > 0) {
+          await this.sleep(delay);
+        }
+        this.renderCanvas(imageData.pixels, imageData.width, imageData.height);
+        this.lastTimestamp = performance.now();
       }
     }
   }
 
-  awaitNextFrameDecode(decoder: Decoder) {
+  awaitNextFrameDecode(decoder: D) {
     return new Promise((resolve, reject) => {
-      decoder.onmessage(WorkerAvifDecoderMessageChannel.avifDecoderNextImage, () =>
-        resolve(true)
-      );
-      decoder.onmessage(WorkerAvifDecoderMessageChannel.error, () => reject(false));
+      decoder.once(DecoderChannel.nextImage, () => resolve(true));
+      decoder.once(DecoderChannel.error, () => reject(false));
     });
   }
 
@@ -96,5 +105,19 @@ export default class Play<
     const imageData = new ImageData(pixels, width, height);
     // 将 ImageData 对象绘制到 Canvas 上
     this.context.putImageData(imageData, 0, 0);
+  }
+
+  async sleep(delay: number) {
+    return new Promise<number>((resolve) => {
+      let targetTime = performance.now() + delay;
+      function checkTime() {
+        if (performance.now() >= targetTime) {
+          resolve(delay);
+        } else {
+          requestAnimationFrame(checkTime);
+        }
+      }
+      requestAnimationFrame(checkTime);
+    });
   }
 }

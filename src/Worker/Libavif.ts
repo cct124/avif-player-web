@@ -79,7 +79,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       const t2 = performance.now();
       const decodeTime = t2 - t1;
       t1 = t2;
-      index++;
       const rbgPtr = this.AwsmAvifDecode._malloc(AVIF_RGB_IMAGE_STRUCT_SIZE); // Assuming avifRGBImage size is 32 bytes
       this.AwsmAvifDecode.HEAP8.fill(
         0,
@@ -137,6 +136,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         [pixels.buffer]
       );
 
+      index++;
       this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
       this.free(rbgPtr);
       this.free(timingPtr);

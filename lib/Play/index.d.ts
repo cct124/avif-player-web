@@ -1,8 +1,8 @@
-import Decoder from "../Decoder";
+import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
-import { DecoderChannel } from "../types/WorkerMessageType";
+import { DecoderEventMap } from "../types/WorkerMessageType";
 import { PlayChannelType } from "./type";
-export default class Play<D extends Observer<DecoderChannel>> extends Observer<PlayChannelType> {
+export default class Play<D extends Decoder<DecoderEventMap>> extends Observer<PlayChannelType> {
     decoder?: D;
     canvas: HTMLCanvasElement;
     context: CanvasRenderingContext2D;
@@ -14,7 +14,8 @@ export default class Play<D extends Observer<DecoderChannel>> extends Observer<P
     constructor(canvas: HTMLCanvasElement);
     setDecoder(decoder: D): void;
     play(): void;
-    update(decoder: Decoder): Promise<void>;
-    awaitNextFrameDecode(decoder: Decoder): Promise<unknown>;
+    update(decoder: D): Promise<void>;
+    awaitNextFrameDecode(decoder: D): Promise<unknown>;
     renderCanvas(arrayBuffer: ArrayBuffer, width: number, height: number): void;
+    sleep(delay: number): Promise<number>;
 }

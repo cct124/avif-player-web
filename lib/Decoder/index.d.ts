@@ -1,7 +1,39 @@
 import { Observer } from "../Observer";
-import { DecoderImageData, WorkerAvifDecoderEventMap, DecoderEventMap } from "../types/WorkerMessageType";
-export declare class Decoder<M> extends Observer<M> {
+import { DecoderImageData } from "../types/WorkerMessageType";
+declare abstract class DecoderAbstract {
+    /**
+     * 进行解码操作
+     * @param arrayBuffer
+     */
+    abstract decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
+}
+export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
+    /**
+     * 所有帧已成功解码完成
+     */
+    decoderImageComplete: boolean;
+    /**
+     * 文件解析完成
+     */
+    decoderParseComplete: boolean;
+    /**
+     * 解码器初始化完成
+     */
+    decoderInitial: boolean;
+    /**
+     * 解码器版本
+     */
+    decoderVersion: string;
+    /**
+     * 解码的帧数据集合
+     */
+    frames: (DecoderImageData | number)[];
+    /**
+     * 帧数
+     */
+    imageCount: number;
     constructor();
+    decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
 }
 export declare class WorkerObserver<W, M> extends Decoder<M> {
     private workerListeners;
@@ -36,26 +68,4 @@ export declare class WorkerObserver<W, M> extends Decoder<M> {
     onmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void): void;
     private listenOnmessage;
 }
-export default class LibavifDecoder extends WorkerObserver<WorkerAvifDecoderEventMap, DecoderEventMap> {
-    /**
-     * 所有帧已成功解码完成
-     */
-    avifDecoderImageComplete: boolean;
-    avifDecoderParseComplete: boolean;
-    decoderInitial: boolean;
-    decoderVersion: string;
-    frames: (DecoderImageData | number)[];
-    /**
-     * 帧数
-     */
-    imageCount: number;
-    constructor(url: string);
-    decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
-    /**
-     * 发送图像数据到Worker进行解码
-     * @param arrayBuffer
-     */
-    avifDecoderParse(arrayBuffer: ArrayBuffer): Promise<unknown>;
-    avifDecoderImage(): Promise<unknown>;
-    private decoderImageData;
-}
+export {};

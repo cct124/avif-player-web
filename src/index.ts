@@ -6,9 +6,10 @@ import { deepMixins } from "./utils";
 import Play from "./Play";
 import {
   DecoderChannel,
+  DecoderEventMap,
   WorkerAvifDecoderMessageChannel,
 } from "./types/WorkerMessageType";
-import { Observer } from "./Observer";
+import { Decoder } from "./Decoder";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });
 const workerDecoderUrl = URL.createObjectURL(blob);
@@ -32,7 +33,7 @@ export default class SoftAvifWeb {
    */
   decodeSymbolId?: string;
 
-  private avifPlay: Play<Observer<DecoderChannel>>;
+  private avifPlay: Play<Decoder<DecoderEventMap>>;
 
   constructor(
     url: string | Uint8Array,
@@ -76,7 +77,9 @@ export default class SoftAvifWeb {
     this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
     this.decodeSymbolId = MD5(url as string).toString();
     const decoder = await this.decoderManager.decoder(this.decodeSymbolId);
+    await decoder.decoder(this.avifFileArrayBuffer);
     this.avifPlay.setDecoder(decoder);
+    this.avifPlay.play();
     // const res = await decoder.decoder(this.avifFileArrayBuffer);
     // decoder.on(WorkerAvifDecoderMessageChannel.avifDecoderNextImage, (data) => {
     //   this.avifPlay.playDecoderFrame(data);
