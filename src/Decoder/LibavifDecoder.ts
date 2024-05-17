@@ -4,10 +4,11 @@ import {
   DecoderEventMap,
   DecoderImageData,
   DecoderChannel,
+  AvifDecoderNextImageData,
 } from "../types/WorkerMessageType";
-import { WorkerObserver } from "./index";
+import { MainEventEmitter } from "./index";
 
-export class LibavifDecoder extends WorkerObserver<
+export class LibavifDecoder extends MainEventEmitter<
   WorkerAvifDecoderEventMap,
   DecoderEventMap
 > {
@@ -33,7 +34,7 @@ export class LibavifDecoder extends WorkerObserver<
   async decoder(arrayBuffer: ArrayBuffer) {
     if (this.frames.length === 0) {
       await this.avifDecoderParse(arrayBuffer);
-      await this.avifDecoderImage();
+      this.avifDecoderImage();
       return true;
     } else {
       return true;
@@ -61,8 +62,7 @@ export class LibavifDecoder extends WorkerObserver<
         });
         this.postMessage(
           WorkerAvifDecoderMessageChannel.avifDecoderParse,
-          arrayBuffer,
-          [arrayBuffer]
+          arrayBuffer
         );
       } catch (error) {
         reject(error);
@@ -80,10 +80,24 @@ export class LibavifDecoder extends WorkerObserver<
     return new Promise((resolve, reject) => {
       if (this.decoderParseComplete) {
         // 缓存解码的图像数据
-        const avifDecoderNextImage = (data: DecoderImageData) => {
-          this.decoderImageData(data);
-          // 发送解码事件
-          this.emit(DecoderChannel.nextImage, data);
+        const avifDecoderNextImage = (
+          data: AvifDecoderNextImageData,
+          arrayBuffer?: ArrayBuffer
+        ) => {
+          console.log(arrayBuffer?.byteLength);
+
+          if (arrayBuffer) {
+            const imageData = data as DecoderImageData;
+            imageData.pixels = new Uint8ClampedArray(arrayBuffer.slice(2, arrayBuffer.byteLength / 2));
+            this.decoderImageData(imageData);
+            // 发送解码事件
+            this.emit(DecoderChannel.nextImage, imageData);
+          } else {
+            this.emit(
+              DecoderChannel.error,
+              new Error("arrayBuffer 对象为空！")
+            );
+          }
         };
 
         // 监听Worker线程NextImage解码事件

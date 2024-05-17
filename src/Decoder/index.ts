@@ -45,15 +45,20 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   }
 }
 
-export class WorkerObserver<W, M> extends Decoder<M> {
-  private workerListeners = new Map<keyof W, Set<(data: any) => void>>();
+export class MainEventEmitter<W, M> extends Decoder<M> {
+  private workerListeners = new Map<
+    keyof W,
+    Set<(data: any, arrayBuffer?: ArrayBuffer) => void>
+  >();
   worker: Worker;
 
   constructor(url: string) {
     super();
     this.worker = new Worker(url);
-    this.worker.onmessage = (...args) => {
-      this.listenOnmessage(...args);
+    this.worker.onmessage = <T extends keyof W>(
+      ev: MessageEvent<MessageEventType<T, W[T]>>
+    ) => {
+      this.listenOnmessage(ev);
     };
   }
 
@@ -63,8 +68,20 @@ export class WorkerObserver<W, M> extends Decoder<M> {
    * @param data
    * @param args
    */
-  postMessage<T extends keyof W>(channel: T, data: W[T], ...args: any[]) {
-    this.worker.postMessage({ channel, data }, ...args);
+  postMessage<T extends keyof W>(
+    channel: T,
+    data: W[T],
+    arrayBuffer?: ArrayBuffer
+  ) {
+    if (data instanceof ArrayBuffer) {
+      this.worker.postMessage([channel, data], [data]);
+    } else {
+      if (arrayBuffer instanceof ArrayBuffer) {
+        this.worker.postMessage([channel, data, arrayBuffer], [arrayBuffer]);
+      } else {
+        this.worker.postMessage([channel, data]);
+      }
+    }
   }
 
   /**
@@ -75,7 +92,7 @@ export class WorkerObserver<W, M> extends Decoder<M> {
    */
   onmessageOnce<T extends keyof W>(
     channel: T,
-    handler: (this: this, ev: W[T]) => void
+    handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
     this.onmessage(channel, (ev: W[T]) => {
       this.clearOnmessage(channel, handler);
@@ -103,7 +120,7 @@ export class WorkerObserver<W, M> extends Decoder<M> {
    * @param channel
    * @param handler
    */
-  onmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void) {
+  onmessage<T extends keyof W>(channel: T, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void) {
     if (this.workerListeners.has(channel)) {
       const listeners = this.workerListeners.get(channel)!;
       listeners.add(handler);
@@ -115,11 +132,11 @@ export class WorkerObserver<W, M> extends Decoder<M> {
   private listenOnmessage<T extends keyof W>(
     ev: MessageEvent<MessageEventType<T, W[T]>>
   ) {
-    const { channel, data } = ev.data;
+    const [channel, data, arrayBuffer] = ev.data;
     if (this.workerListeners.has(channel)) {
       const listeners = this.workerListeners.get(channel)!;
       for (const listener of listeners) {
-        listener(data);
+        listener(data, arrayBuffer);
       }
     }
   }

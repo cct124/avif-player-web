@@ -1,14 +1,43 @@
 import avifDecodeFileWeb from "../Libavif/avifDecodeFileWeb.min.js";
+import { WorkerEventEmitter } from "../Observer/index.js";
+import {
+  WorkerAvifDecoderEventMap,
+  WorkerAvifDecoderMessageChannel,
+} from "../types/WorkerMessageType.js";
 import Libavif from "./Libavif";
+try {
+  let libavif: Libavif;
+  initialAvifDecodeFileWeb();
 
-
-let libavif: Libavif;
-initialAvifDecodeFileWeb();
-
-async function initialAvifDecodeFileWeb() {
-  const AvifDecodeFileWeb = await avifDecodeFileWeb();
-  libavif = new Libavif(AvifDecodeFileWeb);
+  async function initialAvifDecodeFileWeb() {
+    const AvifDecodeFileWeb = await avifDecodeFileWeb();
+    libavif = new Libavif(AvifDecodeFileWeb);
+  }
+} catch (error) {
+  console.log(error);
+  throw error;
 }
+
+// const AVIF_RGB_IMAGE_STRUCT_SIZE = 64;
+// const AVIF_RGB_IMAGE_TIMING_STRUCT_SIZE = 40;
+
+// const channel = new WorkerEventEmitter<WorkerAvifDecoderEventMap>();
+// channel.on(WorkerAvifDecoderMessageChannel.avifDecoderParse, submitDecoding);
+
+// let AvifDecodeFileWeb: any;
+// initialAvifDecodeFileWeb();
+
+// // onmessage = async (e: any) => {
+// //   console.log(e);
+// // };
+
+// async function initialAvifDecodeFileWeb() {
+//   AvifDecodeFileWeb = await avifDecodeFileWeb();
+//   const version = AvifDecodeFileWeb.UTF8ToString(
+//     AvifDecodeFileWeb._avifVersion()
+//   );
+//   channel.send(WorkerAvifDecoderMessageChannel.initial, version);
+// }
 
 // function submitDecoding(arrayBuffer: ArrayBuffer) {
 //   decoder(arrayBuffer);
@@ -39,7 +68,7 @@ async function initialAvifDecodeFileWeb() {
 //     bufferSize
 //   );
 
-//   if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+//   if (result !== 0) {
 //     msgError(new Error(`Failed to set IO memory: ${resToString(result)}`));
 //     free(bufferPtr);
 //     return;
@@ -47,19 +76,17 @@ async function initialAvifDecodeFileWeb() {
 
 //   // Parse the image
 //   result = AvifDecodeFileWeb._avifDecoderParse(decoderPtr);
-//   if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+//   if (result !== 0) {
 //     msgError(new Error(`Failed to decode image: ${resToString(result)}`));
 //     free(bufferPtr);
 //     return;
 //   }
 //   const imageCount = AvifDecodeFileWeb._avifGetImageCount(decoderPtr);
-//   channel.send(WorkerAvifDecoderMessageChannel.imageCount, imageCount);
-//   /**
-//    * 帧索引
-//    */
+//   channel.send(WorkerAvifDecoderMessageChannel.avifDecoderParseComplete, {
+//     imageCount,
+//   });
 //   let index = 0;
 //   while ((result = AvifDecodeFileWeb._avifDecoderNextImage(decoderPtr)) === 0) {
-//     index++;
 //     const rbgPtr = AvifDecodeFileWeb._malloc(AVIF_RGB_IMAGE_STRUCT_SIZE); // Assuming avifRGBImage size is 32 bytes
 //     AvifDecodeFileWeb.HEAP8.fill(
 //       0,
@@ -71,21 +98,21 @@ async function initialAvifDecodeFileWeb() {
 //     AvifDecodeFileWeb._avifRGBImageSetDefaults(rbgPtr, imagePtr);
 //     result = AvifDecodeFileWeb._avifRGBImageAllocatePixels(rbgPtr);
 
-//     const timingPtr = AvifDecodeFileWeb._avifGetImageTiming(decoderPtr, index);
-//     const timing = getImageTiming(timingPtr);
-//     if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+//     // const timingPtr = AvifDecodeFileWeb._avifGetImageTiming(decoderPtr, index);
+//     // const timing = getImageTiming(timingPtr);
+//     if (result !== 0) {
 //       msgError(
 //         new Error(`Allocation of RGB samples failed:  ${resToString(result)}`)
 //       );
-//       free(timingPtr);
+//       // free(timingPtr);
 //       free(rbgPtr);
 //     }
-//     result = AvifDecodeFileWeb._avifImageYUVToRGB(imagePtr, rbgPtr);
-//     if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-//       msgError(
-//         new Error(`Conversion from YUV failed:  ${resToString(result)}`)
-//       );
-//     }
+//     // result = AvifDecodeFileWeb._avifImageYUVToRGB(imagePtr, rbgPtr);
+//     // if (result !== 0) {
+//     //   msgError(
+//     //     new Error(`Conversion from YUV failed:  ${resToString(result)}`)
+//     //   );
+//     // }
 //     const pixelsPtr = AvifDecodeFileWeb._avifGetRGBImagePixels(rbgPtr);
 //     const width = AvifDecodeFileWeb._avifGetRGBImageWidth(rbgPtr);
 //     const height = AvifDecodeFileWeb._avifGetRGBImageHeight(rbgPtr);
@@ -97,25 +124,27 @@ async function initialAvifDecodeFileWeb() {
 //     );
 //     const pixels = _pixels.slice();
 //     channel.send(
-//       WorkerAvifDecoderMessageChannel.decoderImageData,
+//       WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
 //       {
-//         ...timing,
+//         timescale: 0,
+//         pts: 0,
+//         ptsInTimescales: 0,
+//         duration: 0.04,
+//         durationInTimescales: 0,
 //         index,
 //         width,
 //         height,
 //         depth,
 //         pixels: pixels.buffer,
+//         decodeTime: 20,
 //       },
 //       [pixels.buffer]
 //     );
-
+//     index++;
 //     AvifDecodeFileWeb._avifRGBImageFreePixels(rbgPtr);
 //     free(rbgPtr);
-//     free(timingPtr);
+//     // free(timingPtr);
 //   }
-
-//   if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING)
-//     channel.send(WorkerAvifDecoderMessageChannel.decodingComplete);
 
 //   free(bufferPtr);
 //   AvifDecodeFileWeb._avifDecoderDestroy(decoderPtr);
@@ -151,5 +180,4 @@ async function initialAvifDecodeFileWeb() {
 // function free(ptr: number) {
 //   AvifDecodeFileWeb._free(ptr);
 // }
-
 export default "";

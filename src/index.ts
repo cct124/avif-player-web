@@ -78,6 +78,8 @@ export default class SoftAvifWeb {
     this.decodeSymbolId = MD5(url as string).toString();
     const decoder = await this.decoderManager.decoder(this.decodeSymbolId);
     await decoder.decoder(this.avifFileArrayBuffer);
+    console.log(decoder);
+    
     this.avifPlay.setDecoder(decoder);
     this.avifPlay.play();
     // const res = await decoder.decoder(this.avifFileArrayBuffer);

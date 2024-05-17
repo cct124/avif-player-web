@@ -25,129 +25,171 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   }
 
   avifDecoderParse(arrayBuffer: ArrayBuffer) {
-    // Allocate and copy the image file data to WASM memory
-    const bufferSize = arrayBuffer.byteLength;
-    // await onRuntimeInitialized;
-    this.bufferPtr = this.AwsmAvifDecode._malloc(bufferSize);
-    this.AwsmAvifDecode.HEAPU8.set(new Uint8Array(arrayBuffer), this.bufferPtr);
-
-    // Create AVIF decoder
-    this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
-    if (!this.decoderPtr) {
-      this.error(new Error("Memory allocation failure"));
-      return;
-    }
-
-    // Set IO memory
-    let result = this.AwsmAvifDecode._avifDecoderSetIOMemory(
-      this.decoderPtr,
-      this.bufferPtr,
-      bufferSize
-    );
-
-    if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-      this.error(
-        new Error(`Failed to set IO memory: ${this.resultToStr(result)}`)
+    try {
+      // Allocate and copy the image file data to WASM memory
+      const bufferSize = arrayBuffer.byteLength;
+      // await onRuntimeInitialized;
+      this.bufferPtr = this.AwsmAvifDecode._malloc(bufferSize);
+      this.AwsmAvifDecode.HEAPU8.set(
+        new Uint8Array(arrayBuffer),
+        this.bufferPtr
       );
-      if (this.bufferPtr) this.free(this.bufferPtr);
-      return;
-    }
 
-    // Parse the image
-    result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
-    if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-      this.error(
-        new Error(`Failed to decode image: ${this.resultToStr(result)}`)
+      // Create AVIF decoder
+      this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
+      if (!this.decoderPtr) {
+        this.error(new Error("Memory allocation failure"));
+        return;
+      }
+
+      // Set IO memory
+      let result = this.AwsmAvifDecode._avifDecoderSetIOMemory(
+        this.decoderPtr,
+        this.bufferPtr,
+        bufferSize
       );
+
+      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+        this.error(
+          new Error(`Failed to set IO memory: ${this.resultToStr(result)}`)
+        );
+        if (this.bufferPtr) this.free(this.bufferPtr);
+        return;
+      }
+
+      // Parse the image
+      result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
+      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+        this.error(
+          new Error(`Failed to decode image: ${this.resultToStr(result)}`)
+        );
+        if (this.bufferPtr) this.free(this.bufferPtr);
+        return;
+      }
+      const imageCount = this.AwsmAvifDecode._avifGetImageCount(
+        this.decoderPtr
+      );
+      this.send(WorkerAvifDecoderMessageChannel.avifDecoderParseComplete, {
+        imageCount,
+      });
+    } catch (error) {
+      this.error(new Error(`${error}`));
       if (this.bufferPtr) this.free(this.bufferPtr);
-      return;
+      if (this.decoderPtr) this.free(this.decoderPtr);
+    } finally {
     }
-    const imageCount = this.AwsmAvifDecode._avifGetImageCount(this.decoderPtr);
-    this.send(WorkerAvifDecoderMessageChannel.avifDecoderParseComplete, {
-      imageCount,
-    });
   }
 
   avifDecoderImage() {
-    let result = 0;
-    let index = 0;
-    let t1 = performance.now();
-    while (
-      (result = this.AwsmAvifDecode._avifDecoderNextImage(this.decoderPtr)) ===
-      AVIF_RESULT.AVIF_RESULT_OK
-    ) {
-      const t2 = performance.now();
-      const decodeTime = t2 - t1;
-      t1 = t2;
-      const rbgPtr = this.AwsmAvifDecode._malloc(AVIF_RGB_IMAGE_STRUCT_SIZE); // Assuming avifRGBImage size is 32 bytes
-      this.AwsmAvifDecode.HEAP8.fill(
-        0,
-        rbgPtr,
-        rbgPtr + AVIF_RGB_IMAGE_STRUCT_SIZE
-      );
+    try {
+      let result = 0;
+      let index = 0;
+      let t1 = performance.now();
 
-      const imagePtr = this.AwsmAvifDecode._avifGetDecoderImage(
-        this.decoderPtr
-      );
-      this.AwsmAvifDecode._avifRGBImageSetDefaults(rbgPtr, imagePtr);
-      result = this.AwsmAvifDecode._avifRGBImageAllocatePixels(rbgPtr);
+      while (
+        (result = this.AwsmAvifDecode._avifDecoderNextImage(
+          this.decoderPtr
+        )) === AVIF_RESULT.AVIF_RESULT_OK
+      ) {
+        const t2 = performance.now();
+        const decodeTime = t2 - t1;
+        t1 = t2;
+        const rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
 
-      const timingPtr = this.AwsmAvifDecode._avifGetImageTiming(
-        this.decoderPtr,
-        index
-      );
-      const timing = this.getImageTiming(timingPtr);
-      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-        this.error(
-          new Error(
-            `Allocation of RGB samples failed:  ${this.resultToStr(result)}`
-          )
+        const imagePtr = this.AwsmAvifDecode._avifGetDecoderImage(
+          this.decoderPtr
         );
+        this.AwsmAvifDecode._avifRGBImageSetDefaults(rbgPtr, imagePtr);
+        result = this.AwsmAvifDecode._avifRGBImageAllocatePixels(rbgPtr);
+
+        const timingPtr = this.AwsmAvifDecode._avifGetImageTiming(
+          this.decoderPtr,
+          index
+        );
+        const timing = this.getImageTiming(timingPtr);
+        if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+          this.error(
+            new Error(
+              `Allocation of RGB samples failed:  ${this.resultToStr(result)}`
+            )
+          );
+          this.free(timingPtr);
+          this.free(rbgPtr);
+        }
+        result = this.AwsmAvifDecode._avifImageYUVToRGB(imagePtr, rbgPtr);
+        if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+          this.error(
+            new Error(
+              `Conversion from YUV failed:  ${this.resultToStr(result)}`
+            )
+          );
+        }
+        const pixelsPtr = this.AwsmAvifDecode._avifGetRGBImagePixels(rbgPtr);
+        const width = this.AwsmAvifDecode._avifGetRGBImageWidth(rbgPtr);
+        const height = this.AwsmAvifDecode._avifGetRGBImageHeight(rbgPtr);
+        const depth = this.AwsmAvifDecode._avifGetRGBImageDepth(rbgPtr);
+        const _pixels = new Uint8ClampedArray(
+          this.AwsmAvifDecode.HEAPU8.buffer,
+          pixelsPtr,
+          width * height * 4
+        );
+        const pixels = _pixels.slice();
+        // const pixels_t = new Uint8ClampedArray();
+        // postMessage(
+        //   [
+        //     3,
+        //     {
+        //       index,
+        //       width,
+        //       height,
+        //       depth,
+        //       decodeTime,
+        //       timescale: timing.timescale,
+        //       pts: timing.pts,
+        //       ptsInTimescales: timing.ptsInTimescales,
+        //       duration: timing.duration,
+        //       durationInTimescales: timing.durationInTimescales,
+        //     },
+        //     pixels.buffer,
+        //   ],
+        //   [pixels.buffer]
+        // );
+        this.send(
+          WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
+          {
+            timescale: timing.timescale,
+            pts: timing.pts,
+            ptsInTimescales: timing.ptsInTimescales,
+            duration: timing.duration,
+            durationInTimescales: timing.durationInTimescales,
+            index,
+            width,
+            height,
+            depth,
+            decodeTime,
+          },
+          pixels.buffer
+        );
+
+        index++;
+        this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
+        // this.free(imagePtr);
+        // this.free(rbgPtr);
         this.free(timingPtr);
-        this.free(rbgPtr);
       }
-      result = this.AwsmAvifDecode._avifImageYUVToRGB(imagePtr, rbgPtr);
-      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-        this.error(
-          new Error(`Conversion from YUV failed:  ${this.resultToStr(result)}`)
-        );
-      }
-      const pixelsPtr = this.AwsmAvifDecode._avifGetRGBImagePixels(rbgPtr);
-      const width = this.AwsmAvifDecode._avifGetRGBImageWidth(rbgPtr);
-      const height = this.AwsmAvifDecode._avifGetRGBImageHeight(rbgPtr);
-      const depth = this.AwsmAvifDecode._avifGetRGBImageDepth(rbgPtr);
-      const _pixels = new Uint8ClampedArray(
-        this.AwsmAvifDecode.HEAPU8.buffer,
-        pixelsPtr,
-        width * height * 4
-      );
-      const pixels = _pixels.slice();
-      this.send(
-        WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
-        {
-          ...timing,
-          index,
-          width,
-          height,
-          depth,
-          decodeTime,
-          pixels: pixels.buffer,
-        },
-        [pixels.buffer]
-      );
 
-      index++;
-      this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
-      this.free(rbgPtr);
-      this.free(timingPtr);
+      if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING)
+        this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
+    } catch (error) {
+      console.log(error);
+
+      // 处理错误
+      this.error(new Error(`${error}`));
+    } finally {
+      if (this.bufferPtr) this.free(this.bufferPtr);
+      if (this.decoderPtr)
+        this.AwsmAvifDecode._avifDecoderDestroy(this.decoderPtr);
     }
-
-    if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING)
-      this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
-
-    if (this.bufferPtr) this.free(this.bufferPtr);
-    if (this.decoderPtr)
-      this.AwsmAvifDecode._avifDecoderDestroy(this.decoderPtr);
   }
 
   getImageTiming(timingPtr: number) {

@@ -1,6 +1,6 @@
 import typescript from '@rollup/plugin-typescript';
 import inlineWorker from './build/rollup-plugin-inline-worker.js';
-import terser from '@rollup/plugin-terser';
+// import terser from '@rollup/plugin-terser';
 
 export default [
     {
@@ -13,7 +13,7 @@ export default [
                 sourcemap: true,
             }
         ],
-        plugins: [typescript(), terser()]
+        plugins: [typescript()]
     },
     {
         input: 'src/index.ts',

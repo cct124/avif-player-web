@@ -2,7 +2,6 @@ import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import {
   DecoderImageData,
-  WorkerAvifDecoderMessageChannel,
   DecoderChannel,
   DecoderEventMap,
 } from "../types/WorkerMessageType";
@@ -46,16 +45,25 @@ export default class Play<
       if (imageData === 0) {
         await this.awaitNextFrameDecode(decoder);
       } else {
+        console.log(this.index);
+
+        // const fileters = decoder.frames.filter((a) => a !== 0);
+        // const ds = fileters.reduce(
+        //   (a, b: any) => a + (b === 0 ? a + b : b.decodeTime),
+        //   0
+        // ) as number;
+        // console.log(ds / fileters.length);
         const t2 = performance.now();
         const decodeTime = t2 - this.lastTimestamp;
+        // console.log(decodeTime);
         const imageData = decoder.frames[this.index] as DecoderImageData;
         const delay = this.index ? imageData.duration * 1000 - decodeTime : 0;
         this.index++;
-        console.log(decodeTime, imageData.duration * 1000, delay);
         if (delay > 0) {
           await this.sleep(delay);
         }
-        this.renderCanvas(imageData.pixels, imageData.width, imageData.height);
+        console.log(imageData.pixels.byteLength);
+        // this.renderCanvas(imageData.pixels, imageData.width, imageData.height);
         this.lastTimestamp = performance.now();
       }
     }
@@ -109,15 +117,7 @@ export default class Play<
 
   async sleep(delay: number) {
     return new Promise<number>((resolve) => {
-      let targetTime = performance.now() + delay;
-      function checkTime() {
-        if (performance.now() >= targetTime) {
-          resolve(delay);
-        } else {
-          requestAnimationFrame(checkTime);
-        }
-      }
-      requestAnimationFrame(checkTime);
+      timeout(resolve, delay);
     });
   }
 }

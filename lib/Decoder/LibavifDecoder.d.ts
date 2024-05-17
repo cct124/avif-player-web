@@ -1,6 +1,6 @@
 import { WorkerAvifDecoderEventMap, DecoderEventMap } from "../types/WorkerMessageType";
-import { WorkerObserver } from "./index";
-export declare class LibavifDecoder extends WorkerObserver<WorkerAvifDecoderEventMap, DecoderEventMap> {
+import { MainEventEmitter } from "./index";
+export declare class LibavifDecoder extends MainEventEmitter<WorkerAvifDecoderEventMap, DecoderEventMap> {
     constructor(url: string);
     /**
      * 解析&解码操作

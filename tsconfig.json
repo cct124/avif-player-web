@@ -4,7 +4,8 @@
     "module": "ES2015",
     "lib": [
       "dom",
-      "esnext"
+      "esnext",
+      "webworker",
     ],
     "declaration": true,
     "outDir": "./lib",

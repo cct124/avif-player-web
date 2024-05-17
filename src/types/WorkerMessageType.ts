@@ -33,7 +33,7 @@ export enum DecoderChannel {
 
 export interface WorkerAvifDecoderEventMap {
   [WorkerAvifDecoderMessageChannel.avifDecoderParse]: ArrayBuffer;
-  [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: DecoderAvifImageData;
+  [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
   [WorkerAvifDecoderMessageChannel.initial]: string;
   [WorkerAvifDecoderMessageChannel.decodingComplete]: {};
   [WorkerAvifDecoderMessageChannel.avifDecoderParseComplete]: AvifDecoderParseComplete;
@@ -42,7 +42,7 @@ export interface WorkerAvifDecoderEventMap {
 }
 
 export interface DecoderEventMap {
-  [DecoderChannel.error]: Error;
+  [DecoderChannel.error]: Error | ErrorEvent;
   [DecoderChannel.nextImage]: DecoderAvifImageData;
 }
 
@@ -53,10 +53,7 @@ export interface AvifDecoderParseComplete {
   imageCount: number;
 }
 
-/**
- * 每帧图像数据
- */
-export interface DecoderImageData {
+export interface AvifDecoderNextImageData {
   /**
    * 帧索引
    */
@@ -69,11 +66,6 @@ export interface DecoderImageData {
    * 图像高度
    */
   height: number;
-
-  /**
-   * 像素集合
-   */
-  pixels: ArrayBuffer;
   /**
    * 像素位深度[8, 10, 12, 16]。如果深度大于8，则像素在内部必须是uint16_t类型。
    */
@@ -102,6 +94,16 @@ export interface DecoderImageData {
    * 解码时间
    */
   decodeTime: number;
+}
+
+/**
+ * 每帧图像数据
+ */
+export interface DecoderImageData extends AvifDecoderNextImageData {
+  /**
+   * 像素集合
+   */
+  pixels: ArrayBuffer;
 }
 
 export interface DecoderAvifImageData extends DecoderImageData {}
