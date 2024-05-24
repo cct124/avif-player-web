@@ -11,6 +11,8 @@ try {
 
   async function initialAvifDecodeFileWeb() {
     const AvifDecodeFileWeb = await avifDecodeFileWeb();
+    console.log(AvifDecodeFileWeb);
+    
     libavif = new Libavif(AvifDecodeFileWeb);
   }
 } catch (error) {

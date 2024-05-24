@@ -134,26 +134,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
           width * height * 4
         );
         const pixels = _pixels.slice();
-        // const pixels_t = new Uint8ClampedArray();
-        // postMessage(
-        //   [
-        //     3,
-        //     {
-        //       index,
-        //       width,
-        //       height,
-        //       depth,
-        //       decodeTime,
-        //       timescale: timing.timescale,
-        //       pts: timing.pts,
-        //       ptsInTimescales: timing.ptsInTimescales,
-        //       duration: timing.duration,
-        //       durationInTimescales: timing.durationInTimescales,
-        //     },
-        //     pixels.buffer,
-        //   ],
-        //   [pixels.buffer]
-        // );
         this.send(
           WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
           {

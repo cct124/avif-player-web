@@ -84,11 +84,9 @@ export class LibavifDecoder extends MainEventEmitter<
           data: AvifDecoderNextImageData,
           arrayBuffer?: ArrayBuffer
         ) => {
-          console.log(arrayBuffer?.byteLength);
-
           if (arrayBuffer) {
             const imageData = data as DecoderImageData;
-            imageData.pixels = new Uint8ClampedArray(arrayBuffer.slice(2, arrayBuffer.byteLength / 2));
+            imageData.pixels = arrayBuffer;
             this.decoderImageData(imageData);
             // 发送解码事件
             this.emit(DecoderChannel.nextImage, imageData);
