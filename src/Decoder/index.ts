@@ -7,7 +7,8 @@ abstract class DecoderAbstract {
    * 进行解码操作
    * @param arrayBuffer
    */
-  abstract decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
+  abstract decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
+  abstract decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
 }
 
 export class Decoder<M> extends Observer<M> implements DecoderAbstract {
@@ -28,10 +29,6 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
    */
   decoderVersion = "";
   /**
-   * 解码的帧数据集合
-   */
-  frames: (DecoderImageData | number)[] = [];
-  /**
    * 帧数
    */
   imageCount = 0;
@@ -40,8 +37,12 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
     super();
   }
 
-  decoder(arrayBuffer: ArrayBuffer) {
+  decoderParse(arrayBuffer: ArrayBuffer) {
     return Promise.resolve(true);
+  }
+
+  decoderNthImage(frameIndex: number) {
+    return Promise.resolve({} as DecoderImageData);
   }
 }
 
@@ -94,10 +95,11 @@ export class MainEventEmitter<W, M> extends Decoder<M> {
     channel: T,
     handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
-    this.onmessage(channel, (ev: W[T]) => {
-      this.clearOnmessage(channel, handler);
-      handler.call(this, ev);
-    });
+    const _handle = (ev: W[T], arrayBuffer?: ArrayBuffer) => {
+      handler.call(this, ev, arrayBuffer);
+      this.clearOnmessage(channel, _handle);
+    };
+    this.onmessage(channel, _handle);
     return this;
   }
 
@@ -120,7 +122,10 @@ export class MainEventEmitter<W, M> extends Decoder<M> {
    * @param channel
    * @param handler
    */
-  onmessage<T extends keyof W>(channel: T, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void) {
+  onmessage<T extends keyof W>(
+    channel: T,
+    handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void
+  ) {
     if (this.workerListeners.has(channel)) {
       const listeners = this.workerListeners.get(channel)!;
       listeners.add(handler);

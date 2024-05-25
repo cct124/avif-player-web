@@ -19,7 +19,7 @@ export declare class Observer<M> {
      * @param listener 事件回调
      * @returns
      */
-    once<T extends keyof M>(channel: T, listener: (this: this, ev: M[T]) => void): this;
+    once<T extends keyof M>(channel: T, handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void): this;
     /**
      * 删除监听的事件
      * @param channel

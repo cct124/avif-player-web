@@ -14,9 +14,9 @@ export default class SoftAvifWeb {
      */
     private avifFileArrayBuffer?;
     /**
-     * 解码数据唯一值
+     * 唯一资源标识
      */
-    decodeSymbolId?: string;
+    resourceSymbolId?: string;
     private avifPlay;
     constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | SoftAvifWebOptions, option?: SoftAvifWebOptions);
     play(): void;

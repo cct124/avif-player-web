@@ -1,24 +1,31 @@
-import { WorkerAvifDecoderEventMap, DecoderEventMap } from "../types/WorkerMessageType";
+import { WorkerAvifDecoderEventMap, DecoderEventMap, DecoderImageData } from "../types/WorkerMessageType";
 import { MainEventEmitter } from "./index";
 export declare class LibavifDecoder extends MainEventEmitter<WorkerAvifDecoderEventMap, DecoderEventMap> {
-    constructor(url: string);
+    /**
+     * 唯一资源标识
+     */
+    id: string;
+    /**
+     *
+     * @param url worker连接
+     * @param id 唯一资源标识
+     */
+    constructor(url: string, id: string);
     /**
      * 解析&解码操作
      * @param arrayBuffer
      * @returns
      */
-    decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
+    decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
+    /**
+     * 解码指定帧数据
+     * @param frameIndex
+     * @returns
+     */
+    decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
     /**
      * 发送图像数据到Worker进行解码
      * @param arrayBuffer
      */
     avifDecoderParse(arrayBuffer: ArrayBuffer): Promise<unknown>;
-    /**
-     * 解码所有帧数据
-     *
-     * 调用此函数前先调用`avifDecoderParse`
-     * @returns
-     */
-    avifDecoderImage(): Promise<unknown>;
-    private decoderImageData;
 }

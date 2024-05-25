@@ -5,7 +5,8 @@ declare abstract class DecoderAbstract {
      * 进行解码操作
      * @param arrayBuffer
      */
-    abstract decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
+    abstract decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
+    abstract decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
 }
 export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
     /**
@@ -25,15 +26,12 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      */
     decoderVersion: string;
     /**
-     * 解码的帧数据集合
-     */
-    frames: (DecoderImageData | number)[];
-    /**
      * 帧数
      */
     imageCount: number;
     constructor();
-    decoder(arrayBuffer: ArrayBuffer): Promise<boolean>;
+    decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
+    decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
 }
 export declare class MainEventEmitter<W, M> extends Decoder<M> {
     private workerListeners;

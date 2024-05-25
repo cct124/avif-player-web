@@ -12,8 +12,18 @@ export class LibavifDecoder extends MainEventEmitter<
   WorkerAvifDecoderEventMap,
   DecoderEventMap
 > {
-  constructor(url: string) {
+  /**
+   * 唯一资源标识
+   */
+  id: string;
+  /**
+   *
+   * @param url worker连接
+   * @param id 唯一资源标识
+   */
+  constructor(url: string, id: string) {
     super(url);
+    this.id = id;
     this.onmessage(WorkerAvifDecoderMessageChannel.initial, (version) => {
       this.decoderInitial = true;
       this.decoderVersion = version;
@@ -31,14 +41,46 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param arrayBuffer
    * @returns
    */
-  async decoder(arrayBuffer: ArrayBuffer) {
-    if (this.frames.length === 0) {
+  async decoderParse(arrayBuffer: ArrayBuffer) {
+    if (!this.decoderParseComplete) {
       await this.avifDecoderParse(arrayBuffer);
-      this.avifDecoderImage();
       return true;
     } else {
       return true;
     }
+  }
+
+  /**
+   * 解码指定帧数据
+   * @param frameIndex
+   * @returns
+   */
+  decoderNthImage(frameIndex: number) {
+    return new Promise<DecoderImageData>((resolve, reject) => {
+      try {
+        this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderNthImage, {
+          id: this.id,
+          frameIndex,
+        });
+        this.onmessageOnce(
+          WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
+          (data, arrayBuffer) => {
+            if (data.index === frameIndex) {
+              const decoderImageData: DecoderImageData = {
+                ...data,
+                pixels: arrayBuffer!,
+              };
+              resolve(decoderImageData);
+            }
+          }
+        );
+        this.onmessageOnce(WorkerAvifDecoderMessageChannel.error, (error) => {
+          reject(error);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   /**
@@ -52,7 +94,6 @@ export class LibavifDecoder extends MainEventEmitter<
           WorkerAvifDecoderMessageChannel.avifDecoderParseComplete,
           (data) => {
             this.imageCount = data.imageCount;
-            this.frames = new Array(this.imageCount).fill(0);
             this.decoderParseComplete = true;
             resolve(this.decoderImageComplete);
           }
@@ -62,74 +103,14 @@ export class LibavifDecoder extends MainEventEmitter<
         });
         this.postMessage(
           WorkerAvifDecoderMessageChannel.avifDecoderParse,
+          {
+            id: this.id,
+          },
           arrayBuffer
         );
       } catch (error) {
         reject(error);
       }
     });
-  }
-
-  /**
-   * 解码所有帧数据
-   *
-   * 调用此函数前先调用`avifDecoderParse`
-   * @returns
-   */
-  avifDecoderImage() {
-    return new Promise((resolve, reject) => {
-      if (this.decoderParseComplete) {
-        // 缓存解码的图像数据
-        const avifDecoderNextImage = (
-          data: AvifDecoderNextImageData,
-          arrayBuffer?: ArrayBuffer
-        ) => {
-          if (arrayBuffer) {
-            const imageData = data as DecoderImageData;
-            imageData.pixels = arrayBuffer;
-            this.decoderImageData(imageData);
-            // 发送解码事件
-            this.emit(DecoderChannel.nextImage, imageData);
-          } else {
-            this.emit(
-              DecoderChannel.error,
-              new Error("arrayBuffer 对象为空！")
-            );
-          }
-        };
-
-        // 监听Worker线程NextImage解码事件
-        this.onmessage(
-          WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
-          avifDecoderNextImage
-        );
-        // 成功解码数据返回异步
-        this.onmessageOnce(
-          WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
-          () => resolve(true)
-        );
-        // 监听所有图片数据解码完成事件
-        this.onmessageOnce(
-          WorkerAvifDecoderMessageChannel.decodingComplete,
-          () => {
-            // 清除监听的方法事件
-            this.clearOnmessage(
-              WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
-              avifDecoderNextImage
-            );
-          }
-        );
-        this.onmessageOnce(WorkerAvifDecoderMessageChannel.error, (error) => {
-          reject(error);
-        });
-        this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderImage, {});
-      } else {
-        reject(new Error("avifDecoderParseComplete 未解析完成"));
-      }
-    });
-  }
-
-  private decoderImageData(data: DecoderImageData) {
-    this.frames[data.index] = data;
   }
 }

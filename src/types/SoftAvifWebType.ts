@@ -7,6 +7,10 @@ export interface SoftAvifWebOptions {
    * 实例化完成后立即解码
    */
   decodeImmediately?: boolean;
+  /**
+   * 启用webgl api渲染
+   */
+  webgl?: boolean;
 }
 
 export enum SoftAvifWebMessageType {}

@@ -22,7 +22,7 @@ export default class DecoderManager {
       if (this.decoders.has(id)) {
         resolve(this.decoders.get(id)!);
       } else {
-        const decoder = new LibavifDecoder(this.workerDecoderUrl);
+        const decoder = new LibavifDecoder(this.workerDecoderUrl, id);
         decoder.onmessage(
           WorkerAvifDecoderMessageChannel.initial,
           (version) => {

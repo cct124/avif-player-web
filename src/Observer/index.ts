@@ -42,12 +42,13 @@ export class Observer<M> {
    */
   once<T extends keyof M>(
     channel: T,
-    listener: (this: this, ev: M[T]) => void
+    handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
-    this.on(channel, (ev: M[T]) => {
-      this.clear(channel, listener);
-      listener.call(this, ev);
-    });
+    const _handle = (ev: M[T], arrayBuffer?: ArrayBuffer) => {
+      this.clear(channel, _handle);
+      handler.call(this, ev, arrayBuffer);
+    };
+    this.on(channel, _handle);
     return this;
   }
 
@@ -112,10 +113,11 @@ export class WorkerEventEmitter<M> {
     channel: T,
     handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
-    this.on(channel, (ev: M[T]) => {
-      this.clear(channel, handler);
-      handler.call(this, ev);
-    });
+    const _handle = (ev: M[T], arrayBuffer?: ArrayBuffer) => {
+      this.clear(channel, _handle);
+      handler.call(this, ev, arrayBuffer);
+    };
+    this.on(channel, _handle);
     return this;
   }
 

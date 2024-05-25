@@ -33,3 +33,33 @@ export declare enum AVIF_RESULT {
     AVIF_RESULT_INCOMPATIBLE_IMAGE = 28,// the image is incompatible with already encoded images
     AVIF_RESULT_NO_AV1_ITEMS_FOUND = 10
 }
+export interface AvifImageCache {
+    cacheImage(id: string, image: number, index: number): void;
+    initializeCacheEntry(id: string, count: number): void;
+    getImages(id: string, count: number): number | null;
+    getImage(id: string, index: number): number | null;
+    clearCacheForId(id: string): void;
+    clearCache(): void;
+}
+export interface AvifImageTiming {
+    /**
+     * 媒体的时间刻度（Hz）
+     */
+    timescale: number;
+    /**
+     * 表示时间戳，单位为秒
+     */
+    pts: number;
+    /**
+     * 表示时间戳，单位为“timescales”
+     */
+    ptsInTimescales: number;
+    /**
+     * 持续时间，单位为秒
+     */
+    duration: number;
+    /**
+     * 持续时间，单位为“timescales”
+     */
+    durationInTimescales: number;
+}

@@ -29,9 +29,9 @@ export default class SoftAvifWeb {
    */
   private avifFileArrayBuffer?: ArrayBuffer;
   /**
-   * 解码数据唯一值
+   * 唯一资源标识
    */
-  decodeSymbolId?: string;
+  resourceSymbolId?: string;
 
   private avifPlay: Play<Decoder<DecoderEventMap>>;
 
@@ -48,6 +48,7 @@ export default class SoftAvifWeb {
 
     this.option = deepMixins(option, {
       decodeImmediately: true,
+      webgl: true,
     } as SoftAvifWebOptions);
     if (typeof this.option.canvas === "string") {
       this.option.canvas = document.getElementById(
@@ -63,7 +64,9 @@ export default class SoftAvifWeb {
     }
 
     this.url = url;
-    this.avifPlay = new Play(this.option.canvas as HTMLCanvasElement);
+    this.avifPlay = new Play(this.option.canvas as HTMLCanvasElement, {
+      webgl: this.option.webgl,
+    });
     if (this.option.decodeImmediately) {
       this.decoder(this.url);
     }
@@ -75,11 +78,9 @@ export default class SoftAvifWeb {
 
   private async decoder(url: string | ArrayBuffer) {
     this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
-    this.decodeSymbolId = MD5(url as string).toString();
-    const decoder = await this.decoderManager.decoder(this.decodeSymbolId);
-    await decoder.decoder(this.avifFileArrayBuffer);
-    console.log(decoder);
-    
+    this.resourceSymbolId = MD5(url as string).toString();
+    const decoder = await this.decoderManager.decoder(this.resourceSymbolId);
+    await decoder.decoderParse(this.avifFileArrayBuffer);
     this.avifPlay.setDecoder(decoder);
     this.avifPlay.play();
     // const res = await decoder.decoder(this.avifFileArrayBuffer);

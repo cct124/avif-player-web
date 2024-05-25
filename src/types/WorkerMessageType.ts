@@ -24,21 +24,19 @@ export enum WorkerAvifDecoderMessageChannel {
    * 解码所有帧数据
    */
   avifDecoderImage = 6,
+  /**
+   * 解码指定帧数据
+   */
+  avifDecoderNthImage = 7,
+  /**
+   * 解码指定帧数据解码完成
+   */
+  avifDecoderNthImageResult = 8,
 }
 
 export enum DecoderChannel {
   error = 0,
   nextImage = 1,
-}
-
-export interface WorkerAvifDecoderEventMap {
-  [WorkerAvifDecoderMessageChannel.avifDecoderParse]: ArrayBuffer;
-  [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
-  [WorkerAvifDecoderMessageChannel.initial]: string;
-  [WorkerAvifDecoderMessageChannel.decodingComplete]: {};
-  [WorkerAvifDecoderMessageChannel.avifDecoderParseComplete]: AvifDecoderParseComplete;
-  [WorkerAvifDecoderMessageChannel.error]: Error;
-  [WorkerAvifDecoderMessageChannel.avifDecoderImage]: {};
 }
 
 export interface DecoderEventMap {
@@ -54,6 +52,7 @@ export interface AvifDecoderParseComplete {
 }
 
 export interface AvifDecoderNextImageData {
+  id: string;
   /**
    * 帧索引
    */
@@ -107,3 +106,33 @@ export interface DecoderImageData extends AvifDecoderNextImageData {
 }
 
 export interface DecoderAvifImageData extends DecoderImageData {}
+
+export interface AvifDecoderParseData {
+  /**
+   * 唯一资源标识
+   */
+  id: string;
+}
+
+export interface AvifDecoderNthImageData {
+  /**
+   * 唯一资源标识
+   */
+  id: string;
+  /**
+   * 帧索引
+   */
+  frameIndex: number;
+}
+
+export interface WorkerAvifDecoderEventMap {
+  [WorkerAvifDecoderMessageChannel.avifDecoderParse]: AvifDecoderParseData;
+  [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
+  [WorkerAvifDecoderMessageChannel.initial]: string;
+  [WorkerAvifDecoderMessageChannel.decodingComplete]: {};
+  [WorkerAvifDecoderMessageChannel.avifDecoderParseComplete]: AvifDecoderParseComplete;
+  [WorkerAvifDecoderMessageChannel.error]: Error;
+  [WorkerAvifDecoderMessageChannel.avifDecoderImage]: { id: string };
+  [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNthImageData;
+  [WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult]: AvifDecoderNextImageData;
+}

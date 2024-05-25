@@ -14,13 +14,15 @@ export default class Play<D extends Decoder<DecoderEventMap>> extends Observer<P
      */
     index: number;
     lastTimestamp: number;
-    render: (arrayBuffer: ArrayBuffer, width: number, height: number) => void;
+    renderStats: number[];
+    render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(canvas: HTMLCanvasElement, option?: PlayOptions);
     setDecoder(decoder: D): void;
     play(): void;
     update(decoder: D): Promise<void>;
     awaitNextFrameDecode(decoder: D): Promise<unknown>;
-    renderWebgl(arrayBuffer: ArrayBuffer, width: number, height: number): void;
-    renderCanvas(arrayBuffer: ArrayBuffer, width: number, height: number): void;
+    webglInit(gl: WebGLRenderingContext): void;
+    renderWebgl(uint8ClampedArray: Uint8ClampedArray, width: number, height: number): void;
+    renderCanvas(uint8ClampedArray: Uint8ClampedArray, width: number, height: number): void;
     sleep(delay: number): Promise<number>;
 }
