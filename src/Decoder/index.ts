@@ -32,6 +32,14 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
    * 帧数
    */
   imageCount = 0;
+  /**
+   * 图像宽度
+   */
+  width = 0;
+  /**
+   * 图像高度
+   */
+  height = 0;
 
   constructor() {
     super();
@@ -44,6 +52,8 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   decoderNthImage(frameIndex: number) {
     return Promise.resolve({} as DecoderImageData);
   }
+
+  avifDecoderAllImage() {}
 }
 
 export class MainEventEmitter<W, M> extends Decoder<M> {
@@ -112,7 +122,8 @@ export class MainEventEmitter<W, M> extends Decoder<M> {
   clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void) {
     const handlers = this.workerListeners.get(channel);
     if (handlers) {
-      return handlers.delete(handler);
+      handlers.delete(handler);
+      return;
     }
     return false;
   }

@@ -23,7 +23,7 @@ export default class Play<
   index = 0;
   lastTimestamp = 0;
   renderStats: number[] = [];
-  render: (
+  render!: (
     arrayBuffer: Uint8ClampedArray,
     width: number,
     height: number
@@ -34,6 +34,10 @@ export default class Play<
       webgl: true,
     });
     this.canvas = canvas;
+  }
+
+  setDecoder(decoder: D) {
+    this.decoder = decoder;
     if (this.option.webgl) {
       this.gl = this.canvas.getContext("webgl")!;
       if (this.gl) {
@@ -48,10 +52,6 @@ export default class Play<
     }
   }
 
-  setDecoder(decoder: D) {
-    this.decoder = decoder;
-  }
-
   play() {
     if (this.decoder) {
       this.index = 0;
@@ -63,10 +63,8 @@ export default class Play<
 
   async update(decoder: D) {
     this.lastTimestamp = performance.now();
-    while (this.index < decoder.imageCount) {
+    while (this.index <= decoder.imageCount) {
       const imageData = await decoder.decoderNthImage(this.index);
-      // console.log(imageData.index);
-
       const t2 = performance.now();
       const decodeTime = t2 - this.lastTimestamp;
       const delay = this.index ? imageData.duration * 1000 - decodeTime : 0;
@@ -74,12 +72,12 @@ export default class Play<
         await this.sleep(delay);
       }
       const pixels = new Uint8ClampedArray(imageData.pixels);
-      const t3 = performance.now();
       this.render(pixels, imageData.width, imageData.height);
-      this.renderStats.push(imageData.decodeTime);
-      const total = this.renderStats.reduce((a, b) => a + b, 0);
-      console.log(total / this.renderStats.length);
+      // this.renderStats.push(imageData.decodeTime);
+      // const total = this.renderStats.reduce((a, b) => a + b, 0);
+      // console.log(total / this.renderStats.length);
       this.index++;
+
       this.lastTimestamp = performance.now();
     }
   }

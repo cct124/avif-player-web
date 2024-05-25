@@ -80,26 +80,15 @@ export default class SoftAvifWeb {
     this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
     this.resourceSymbolId = MD5(url as string).toString();
     const decoder = await this.decoderManager.decoder(this.resourceSymbolId);
+    if (!decoder.decoderParseComplete) {
+      decoder.once(DecoderChannel.avifParse, ({ width, height }) => {
+        (this.option.canvas as HTMLCanvasElement).width = width;
+        (this.option.canvas as HTMLCanvasElement).height = height;
+      });
+    }
     await decoder.decoderParse(this.avifFileArrayBuffer);
     this.avifPlay.setDecoder(decoder);
     this.avifPlay.play();
-    // const res = await decoder.decoder(this.avifFileArrayBuffer);
-    // decoder.on(WorkerAvifDecoderMessageChannel.avifDecoderNextImage, (data) => {
-    //   this.avifPlay.playDecoderFrame(data);
-    // });
-
-    // decoder.on(WorkerAvifDecoderMessageChannel.decoderImageData, (data) => {
-    //   this.avifPlay.playDecoderFrame(data);
-    // });
-    // if (decoder.decodingComplete) {
-    //   this.avifPlay.setFrames(decoder.cacheFrameDatas, decoder.imageCount);
-    //   this.avifPlay.playCacheFrames();
-    // } else {
-    //   decoder.decoder(this.avifFileArrayBuffer);
-    //   decoder.on(WorkerAvifDecoderMessageChannel.decoderImageData, (data) => {
-    //     this.avifPlay.playDecoderFrame(data);
-    //   });
-    // }
   }
 
   /**

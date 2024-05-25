@@ -74,9 +74,6 @@ export class LibavifDecoder extends MainEventEmitter<
             }
           }
         );
-        this.onmessageOnce(WorkerAvifDecoderMessageChannel.error, (error) => {
-          reject(error);
-        });
       } catch (error) {
         reject(error);
       }
@@ -92,9 +89,12 @@ export class LibavifDecoder extends MainEventEmitter<
       try {
         this.onmessageOnce(
           WorkerAvifDecoderMessageChannel.avifDecoderParseComplete,
-          (data) => {
-            this.imageCount = data.imageCount;
+          ({ imageCount, width, height }) => {
+            this.imageCount = imageCount;
+            this.width = width;
+            this.height = height;
             this.decoderParseComplete = true;
+            this.emit(DecoderChannel.avifParse, { imageCount, width, height });
             resolve(this.decoderImageComplete);
           }
         );
@@ -105,6 +105,7 @@ export class LibavifDecoder extends MainEventEmitter<
           WorkerAvifDecoderMessageChannel.avifDecoderParse,
           {
             id: this.id,
+            yueCache: false,
           },
           arrayBuffer
         );
@@ -112,5 +113,17 @@ export class LibavifDecoder extends MainEventEmitter<
         reject(error);
       }
     });
+  }
+
+  avifDecoderAllImage() {
+    this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderImage, {
+      id: this.id,
+    });
+    this.onmessageOnce(
+      WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
+      (data) => {
+        console.log(data.index);
+      }
+    );
   }
 }

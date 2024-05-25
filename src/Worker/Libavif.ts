@@ -12,34 +12,40 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   AwsmAvifDecode: any;
   decoderPtr?: number;
   bufferPtr?: number;
-  avifImageCachePtr: number;
+  width?: number;
+  height?: number;
+  avifImageCachePtr?: number;
   index = 0;
   imageCount = 0;
+  yueCache = false;
   timingCache = new Map<string, AvifImageTiming[]>();
+  decoderNthImage!: (id: string, frameIndex: number) => void;
+  rbgPtr?: number;
+  decodeStats: number[] = [];
+
   constructor(awsmAvifDecode: any) {
     super();
     this.AwsmAvifDecode = awsmAvifDecode;
-    this.avifImageCachePtr = this.AwsmAvifDecode._avifCreateAvifImageCache();
+    // this.avifImageCachePtr = this.AwsmAvifDecode._avifCreateAvifImageCache();
 
     this.on(
       WorkerAvifDecoderMessageChannel.avifDecoderParse,
-      ({ id }, arrayBuffer) => {
+      ({ id, yueCache }, arrayBuffer) => {
+        console.log(id);
+
+        this.yueCache = yueCache;
         if (id && arrayBuffer?.byteLength) {
           this.avifDecoderParse(arrayBuffer);
-          if (this.imageCount > 0) {
-            console.log(id);
-
-            this.avifInitializeCacheEntry(id, this.imageCount);
-            this.AwsmAvifDecode.ccall(
-              "avifCacheImagePrintCache",
-              "void",
-              ["number"],
-              [this.avifImageCachePtr]
-            );
-
-            this.timingCache.set(id, new Array(this.imageCount).fill(null));
+          if (this.yueCache) {
+            this.decoderNthImage = this.avifDecoderNthCacheImage;
+            if (this.imageCount > 0) {
+              this.avifInitializeCacheEntry(id, this.imageCount);
+              this.timingCache.set(id, new Array(this.imageCount).fill(null));
+            } else {
+              throw new Error(`没有图像数据，imageCount：${this.imageCount}`);
+            }
           } else {
-            throw new Error(`没有图像数据，imageCount：${this.imageCount}`);
+            this.decoderNthImage = this.avifDecoderNthImage;
           }
         } else {
           throw new Error(`参数错误 id: ${id} arrayBuffer: ${arrayBuffer}`);
@@ -52,7 +58,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
     this.on(
       WorkerAvifDecoderMessageChannel.avifDecoderNthImage,
       ({ id, frameIndex }) => {
-        this.avifDecoderNthImage(id, frameIndex);
+        this.decoderNthImage(id, frameIndex);
       }
     );
     this.send(WorkerAvifDecoderMessageChannel.initial, this.avifVersion());
@@ -93,6 +99,10 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
       // Parse the image
       result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
+      this.imageCount = this.AwsmAvifDecode._avifGetImageCount(this.decoderPtr);
+      this.width = this.AwsmAvifDecode._avifGetImageWidth(this.decoderPtr);
+      this.height = this.AwsmAvifDecode._avifGetImageHeight(this.decoderPtr);
+
       if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
         this.error(
           new Error(`Failed to decode image: ${this.resultToStr(result)}`)
@@ -100,9 +110,13 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         if (this.bufferPtr) this.free(this.bufferPtr);
         return;
       }
-      this.imageCount = this.AwsmAvifDecode._avifGetImageCount(this.decoderPtr);
+
+      this.rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
+
       this.send(WorkerAvifDecoderMessageChannel.avifDecoderParseComplete, {
         imageCount: this.imageCount,
+        width: this.width!,
+        height: this.height!,
       });
     } catch (error) {
       this.error(new Error(`${error}`));
@@ -113,13 +127,63 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   }
 
   avifDecoderNthImage(id: string, frameIndex: number) {
+    let result = 0;
+    let t1 = performance.now();
+    if (
+      (result = this.AwsmAvifDecode._avifDecoderNthImage(
+        this.decoderPtr,
+        frameIndex
+      )) === AVIF_RESULT.AVIF_RESULT_OK
+    ) {
+      this.decodeStats.push(performance.now() - t1);
+      const total = this.decodeStats.reduce((a, b) => a + b, 0);
+      console.log(total / this.decodeStats.length);
+
+      const imagePtr = this.AwsmAvifDecode._avifGetDecoderImage(
+        this.decoderPtr
+      );
+      const timingPtr = this.AwsmAvifDecode._avifGetImageTiming(
+        this.decoderPtr,
+        frameIndex
+      );
+      const timing = this.getImageTiming(timingPtr);
+      this.avifDecoderNthImageResult(
+        id,
+        imagePtr,
+        timing,
+        frameIndex,
+        t1,
+        this.rbgPtr!
+      );
+      this.free(timingPtr);
+    }
+
+    if (frameIndex === this.imageCount) {
+      console.log("decodingComplete");
+
+      this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
+      if (this.rbgPtr) this.free(this.rbgPtr);
+      if (this.bufferPtr) this.free(this.bufferPtr);
+      if (this.decoderPtr)
+        this.AwsmAvifDecode._avifDecoderDestroy(this.decoderPtr);
+    }
+  }
+
+  avifDecoderNthCacheImage(id: string, frameIndex: number) {
     if (!this.timingCache.has(id)) throw new Error(`未初始化解码器 ID: #{id}`);
     const timings = this.timingCache.get(id)!;
     const imagePtr = this.avifGetCacheImage(id, frameIndex);
     if (imagePtr) {
       let t1 = performance.now();
       const timing = timings[frameIndex];
-      this.avifDecoderNthImageResult(id, imagePtr, timing, frameIndex, t1);
+      this.avifDecoderNthImageResult(
+        id,
+        imagePtr,
+        timing,
+        frameIndex,
+        t1,
+        this.rbgPtr!
+      );
     } else {
       let t1 = performance.now();
       let result = 0;
@@ -142,8 +206,18 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         const timing = this.getImageTiming(timingPtr);
         timings[frameIndex] = timing;
         this.avifCacheImage(id, dstImage, frameIndex);
-        this.avifDecoderNthImageResult(id, dstImage, timing, frameIndex, t1);
-      } else if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING) {
+        this.avifDecoderNthImageResult(
+          id,
+          dstImage,
+          timing,
+          frameIndex,
+          t1,
+          this.rbgPtr!
+        );
+      }
+      if (frameIndex === this.imageCount) {
+        this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
+        if (this.rbgPtr) this.free(this.rbgPtr);
         if (this.bufferPtr) this.free(this.bufferPtr);
         if (this.decoderPtr)
           this.AwsmAvifDecode._avifDecoderDestroy(this.decoderPtr);
@@ -156,10 +230,9 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
     imagePtr: number,
     timing: AvifImageTiming,
     index: number,
-    t1: number
+    t1: number,
+    rbgPtr: number
   ) {
-    const rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
-
     this.AwsmAvifDecode._avifRGBImageSetDefaults(rbgPtr, imagePtr);
     let result = this.AwsmAvifDecode._avifRGBImageAllocatePixels(rbgPtr);
 
@@ -214,12 +287,14 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       let result = 0;
       let index = 0;
       let t1 = performance.now();
-
       while (
         (result = this.AwsmAvifDecode._avifDecoderNextImage(
           this.decoderPtr
         )) === AVIF_RESULT.AVIF_RESULT_OK
       ) {
+        this.decodeStats.push(performance.now() - t1);
+        const total = this.decodeStats.reduce((a, b) => a + b, 0);
+        console.log(total / this.decodeStats.length);
         const t2 = performance.now();
         const decodeTime = t2 - t1;
         t1 = t2;
@@ -283,8 +358,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
         index++;
         this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
-        // this.free(imagePtr);
-        // this.free(rbgPtr);
         this.free(timingPtr);
       }
 
@@ -369,5 +442,14 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
   UTF8ToString(ptr: number) {
     return this.AwsmAvifDecode.UTF8ToString(ptr);
+  }
+
+  avifSetDecoderMaxThreads(threads: number = 4) {
+    this.AwsmAvifDecode.ccall(
+      "avifSetDecoderMaxThreads",
+      "void",
+      ["number", "number"],
+      [this.decoderPtr, threads]
+    );
   }
 }

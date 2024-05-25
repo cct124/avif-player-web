@@ -117,6 +117,7 @@ export class WorkerEventEmitter<M> {
       this.clear(channel, _handle);
       handler.call(this, ev, arrayBuffer);
     };
+
     this.on(channel, _handle);
     return this;
   }

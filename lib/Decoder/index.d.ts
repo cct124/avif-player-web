@@ -29,9 +29,18 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      * 帧数
      */
     imageCount: number;
+    /**
+     * 图像宽度
+     */
+    width: number;
+    /**
+     * 图像高度
+     */
+    height: number;
     constructor();
     decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
     decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
+    avifDecoderAllImage(): void;
 }
 export declare class MainEventEmitter<W, M> extends Decoder<M> {
     private workerListeners;
@@ -57,7 +66,7 @@ export declare class MainEventEmitter<W, M> extends Decoder<M> {
      * @param handler
      * @returns
      */
-    clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void): boolean;
+    clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void): false | undefined;
     /**
      * 监听Worker线程发送的事件
      * @param channel

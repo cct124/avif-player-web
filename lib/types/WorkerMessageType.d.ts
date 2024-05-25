@@ -35,17 +35,30 @@ export declare enum WorkerAvifDecoderMessageChannel {
 }
 export declare enum DecoderChannel {
     error = 0,
-    nextImage = 1
+    nextImage = 1,
+    avifParse = 2,
+    firstFrameDecode = 3
 }
 export interface DecoderEventMap {
     [DecoderChannel.error]: Error | ErrorEvent;
     [DecoderChannel.nextImage]: DecoderAvifImageData;
+    [DecoderChannel.avifParse]: AvifParseData;
 }
-export interface AvifDecoderParseComplete {
+export interface AvifParseData {
+    /**
+     * 图像宽度
+     */
+    width: number;
+    /**
+     * 图像高度
+     */
+    height: number;
     /**
      * 帧数
      */
     imageCount: number;
+}
+export interface AvifDecoderParseComplete extends AvifParseData {
 }
 export interface AvifDecoderNextImageData {
     id: string;
@@ -106,6 +119,10 @@ export interface AvifDecoderParseData {
      * 唯一资源标识
      */
     id: string;
+    /**
+     * 开启yuv解码数据缓存，以提高下次播放时的解码速度，开启这个会占用大量内存，慎用
+     */
+    yueCache: boolean;
 }
 export interface AvifDecoderNthImageData {
     /**
