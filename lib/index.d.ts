@@ -19,6 +19,7 @@ export default class SoftAvifWeb {
     resourceSymbolId?: string;
     private avifPlay;
     constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | SoftAvifWebOptions, option?: SoftAvifWebOptions);
+    pause(): void;
     play(): void;
     private decoder;
     /**

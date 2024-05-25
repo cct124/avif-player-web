@@ -18,15 +18,17 @@ export default class DecoderManager {
   }
 
   initialDecoder(id: string) {
+    console.log(this.decoders);
+
     return new Promise<DecoderType>((resolve, reject) => {
       if (this.decoders.has(id)) {
         resolve(this.decoders.get(id)!);
       } else {
         const decoder = new LibavifDecoder(this.workerDecoderUrl, id);
+        this.decoders.add(id, decoder);
         decoder.onmessage(
           WorkerAvifDecoderMessageChannel.initial,
           (version) => {
-            this.decoders.add(id, decoder);
             resolve(decoder);
           }
         );

@@ -39,12 +39,17 @@ export enum DecoderChannel {
   nextImage = 1,
   avifParse = 2,
   firstFrameDecode = 3,
+  /**
+   * 所有图像数据解码完成
+   */
+  decodeComplete = 4,
 }
 
 export interface DecoderEventMap {
   [DecoderChannel.error]: Error | ErrorEvent;
   [DecoderChannel.nextImage]: DecoderAvifImageData;
   [DecoderChannel.avifParse]: AvifParseData;
+  [DecoderChannel.decodeComplete]: {};
 }
 
 export interface AvifParseData {

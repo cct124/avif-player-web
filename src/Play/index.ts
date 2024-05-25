@@ -7,11 +7,13 @@ import {
   DecoderEventMap,
 } from "../types/WorkerMessageType";
 import { deepMixins, timeout } from "../utils";
-import { PlayChannelType } from "./type";
+import { PlayChannelType, PlayEventMap } from "./type";
 
 export default class Play<
   D extends Decoder<DecoderEventMap>
-> extends Observer<PlayChannelType> {
+> extends Observer<PlayEventMap> {
+  playing = false;
+  paused = false;
   option: PlayOptions;
   decoder?: D;
   canvas: HTMLCanvasElement;
@@ -23,6 +25,7 @@ export default class Play<
   index = 0;
   lastTimestamp = 0;
   renderStats: number[] = [];
+  loopCount = 0;
   render!: (
     arrayBuffer: Uint8ClampedArray,
     width: number,
@@ -32,54 +35,76 @@ export default class Play<
     super();
     this.option = deepMixins(option, {
       webgl: true,
+      loop: 1,
     });
+    if (this.option.loop === 0) this.option.loop = Infinity;
     this.canvas = canvas;
   }
 
   setDecoder(decoder: D) {
-    this.decoder = decoder;
-    if (this.option.webgl) {
-      this.gl = this.canvas.getContext("webgl")!;
-      if (this.gl) {
-        this.webglInit(this.gl);
-        this.render = this.renderWebgl;
+    if (!this.decoder) {
+      this.decoder = decoder;
+      if (this.option.webgl) {
+        this.gl = this.canvas.getContext("webgl")!;
+        if (this.gl) {
+          this.webglInit(this.gl);
+          this.render = this.renderWebgl;
+        } else {
+          throw new Error("webgl对象创建失败", this.gl);
+        }
       } else {
-        throw new Error("webgl对象创建失败", this.gl);
+        this.ctx2d = this.canvas.getContext("2d")!;
+        this.render = this.renderCanvas;
       }
-    } else {
-      this.ctx2d = this.canvas.getContext("2d")!;
-      this.render = this.renderCanvas;
     }
   }
 
-  play() {
-    if (this.decoder) {
-      this.index = 0;
-      this.update(this.decoder);
-    } else {
-      throw new Error("未设置解码器对象");
+  play(index?: number) {
+    if (!this.playing) {
+      if (this.decoder) {
+        if (index) this.index = index;
+        this.update(this.decoder);
+      } else {
+        throw new Error("未设置解码器对象");
+      }
     }
+  }
+
+  pause() {
+    this.paused = true;
   }
 
   async update(decoder: D) {
+    this.paused = false;
+    this.playing = true;
     this.lastTimestamp = performance.now();
-    while (this.index <= decoder.imageCount) {
-      const imageData = await decoder.decoderNthImage(this.index);
-      const t2 = performance.now();
-      const decodeTime = t2 - this.lastTimestamp;
-      const delay = this.index ? imageData.duration * 1000 - decodeTime : 0;
-      if (delay > 0) {
-        await this.sleep(delay);
+    for (
+      this.loopCount = this.loopCount;
+      this.loopCount < this.option.loop!;
+      this.loopCount++
+    ) {
+      while (this.index < decoder.imageCount) {
+        const t2 = performance.now();
+        const imageData = await decoder.decoderNthImage(this.index);
+        const decodeTime = t2 - this.lastTimestamp;
+        const delay = this.index ? imageData.duration * 1000 - decodeTime : 0;
+        if (delay > 0) {
+          await this.sleep(delay);
+        }
+        const pixels = new Uint8ClampedArray(imageData.pixels);
+        this.render(pixels, imageData.width, imageData.height);
+        this.emit(PlayChannelType.frameIndexChange, this.index);
+        this.lastTimestamp = performance.now();
+        this.index++;
+        if (this.paused) {
+          this.playing = false;
+          return;
+        }
       }
-      const pixels = new Uint8ClampedArray(imageData.pixels);
-      this.render(pixels, imageData.width, imageData.height);
-      // this.renderStats.push(imageData.decodeTime);
-      // const total = this.renderStats.reduce((a, b) => a + b, 0);
-      // console.log(total / this.renderStats.length);
-      this.index++;
-
-      this.lastTimestamp = performance.now();
+      this.index = 0;
     }
+
+    this.playing = false;
   }
 
   awaitNextFrameDecode(decoder: D) {

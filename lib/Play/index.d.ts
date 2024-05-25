@@ -2,8 +2,10 @@ import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import { PlayOptions } from "../types/PlayType";
 import { DecoderEventMap } from "../types/WorkerMessageType";
-import { PlayChannelType } from "./type";
-export default class Play<D extends Decoder<DecoderEventMap>> extends Observer<PlayChannelType> {
+import { PlayEventMap } from "./type";
+export default class Play<D extends Decoder<DecoderEventMap>> extends Observer<PlayEventMap> {
+    playing: boolean;
+    paused: boolean;
     option: PlayOptions;
     decoder?: D;
     canvas: HTMLCanvasElement;
@@ -15,10 +17,12 @@ export default class Play<D extends Decoder<DecoderEventMap>> extends Observer<P
     index: number;
     lastTimestamp: number;
     renderStats: number[];
+    loopCount: number;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(canvas: HTMLCanvasElement, option?: PlayOptions);
     setDecoder(decoder: D): void;
-    play(): void;
+    play(index?: number): void;
+    pause(): void;
     update(decoder: D): Promise<void>;
     awaitNextFrameDecode(decoder: D): Promise<unknown>;
     webglInit(gl: WebGLRenderingContext): void;

@@ -1,3 +1,7 @@
-export enum PlayChannelType {}
+export enum PlayChannelType {
+  frameIndexChange = 1,
+}
 
-export interface PlayEventMap {}
+export interface PlayEventMap {
+  [PlayChannelType.frameIndexChange]: number;
+}

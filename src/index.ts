@@ -10,6 +10,7 @@ import {
   WorkerAvifDecoderMessageChannel,
 } from "./types/WorkerMessageType";
 import { Decoder } from "./Decoder";
+import { PlayChannelType } from "./Play/type";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });
 const workerDecoderUrl = URL.createObjectURL(blob);
@@ -62,22 +63,31 @@ export default class SoftAvifWeb {
       this.decoderManager = window._SoftAvifWebDecoderManager =
         new DecoderManager(workerDecoderUrl);
     }
+    console.log(this.decoderManager);
 
     this.url = url;
     this.avifPlay = new Play(this.option.canvas as HTMLCanvasElement, {
       webgl: this.option.webgl,
+      loop: this.option.loop,
     });
     if (this.option.decodeImmediately) {
       this.decoder(this.url);
     }
   }
 
+  pause() {
+    this.avifPlay.pause();
+  }
+
   play() {
-    this.decoder(this.url);
+    if (this.avifPlay.paused) {
+      this.avifPlay.play();
+    } else {
+      if (!this.avifPlay.playing) this.decoder(this.url);
+    }
   }
 
   private async decoder(url: string | ArrayBuffer) {
-    this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
     this.resourceSymbolId = MD5(url as string).toString();
     const decoder = await this.decoderManager.decoder(this.resourceSymbolId);
     if (!decoder.decoderParseComplete) {
@@ -85,8 +95,9 @@ export default class SoftAvifWeb {
         (this.option.canvas as HTMLCanvasElement).width = width;
         (this.option.canvas as HTMLCanvasElement).height = height;
       });
+      this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
     }
-    await decoder.decoderParse(this.avifFileArrayBuffer);
+    await decoder.decoderParse(this.avifFileArrayBuffer!);
     this.avifPlay.setDecoder(decoder);
     this.avifPlay.play();
   }

@@ -35,7 +35,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
         this.yueCache = yueCache;
         if (id && arrayBuffer?.byteLength) {
-          this.avifDecoderParse(arrayBuffer);
+          if (!this.decoderPtr) this.avifDecoderParse(arrayBuffer);
           if (this.yueCache) {
             this.decoderNthImage = this.avifDecoderNthCacheImage;
             if (this.imageCount > 0) {
@@ -111,8 +111,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         return;
       }
 
-      this.rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
-
       this.send(WorkerAvifDecoderMessageChannel.avifDecoderParseComplete, {
         imageCount: this.imageCount,
         width: this.width!,
@@ -122,7 +120,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       this.error(new Error(`${error}`));
       if (this.bufferPtr) this.free(this.bufferPtr);
       if (this.decoderPtr) this.free(this.decoderPtr);
-    } finally {
     }
   }
 
@@ -135,10 +132,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         frameIndex
       )) === AVIF_RESULT.AVIF_RESULT_OK
     ) {
-      this.decodeStats.push(performance.now() - t1);
-      const total = this.decodeStats.reduce((a, b) => a + b, 0);
-      console.log(total / this.decodeStats.length);
-
+      const rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
       const imagePtr = this.AwsmAvifDecode._avifGetDecoderImage(
         this.decoderPtr
       );
@@ -153,19 +147,15 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         timing,
         frameIndex,
         t1,
-        this.rbgPtr!
+        rbgPtr
       );
+      this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
+      this.free(rbgPtr);
       this.free(timingPtr);
     }
 
     if (frameIndex === this.imageCount) {
-      console.log("decodingComplete");
-
       this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
-      if (this.rbgPtr) this.free(this.rbgPtr);
-      if (this.bufferPtr) this.free(this.bufferPtr);
-      if (this.decoderPtr)
-        this.AwsmAvifDecode._avifDecoderDestroy(this.decoderPtr);
     }
   }
 
@@ -219,8 +209,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
         if (this.rbgPtr) this.free(this.rbgPtr);
         if (this.bufferPtr) this.free(this.bufferPtr);
-        if (this.decoderPtr)
-          this.AwsmAvifDecode._avifDecoderDestroy(this.decoderPtr);
       }
     }
   }
