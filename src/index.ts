@@ -1,16 +1,17 @@
 import MD5 from "crypto-js/md5";
 import workerScript from "./Worker/worker";
-import DecoderManager from "./DecoderManager/index";
+// import DecoderManager from "./DecoderManager/index";
 import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
 import { deepMixins } from "./utils";
-import Play from "./Play";
+import AnimationPlayback from "./AnimationPlayback";
 import {
   DecoderChannel,
   DecoderEventMap,
   WorkerAvifDecoderMessageChannel,
 } from "./types/WorkerMessageType";
 import { Decoder } from "./Decoder";
-import { PlayChannelType } from "./Play/type";
+import { PlayChannelType } from "./AnimationPlayback/type";
+import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });
 const workerDecoderUrl = URL.createObjectURL(blob);
@@ -24,7 +25,7 @@ export default class SoftAvifWeb {
   /**
    * DecoderManager的管理对象，这个是全局共享的，注册到`window._SoftAvifWebDecoderManager`
    */
-  private decoderManager: DecoderManager;
+  // private decoderManager: DecoderManager;
   /**
    * avif的Uint8Array文件数据
    */
@@ -33,8 +34,12 @@ export default class SoftAvifWeb {
    * 唯一资源标识
    */
   resourceSymbolId?: string;
+  /**
+   * 播放对象
+   */
+  private animationPlayback: AnimationPlayback<Decoder<DecoderEventMap>>;
 
-  private avifPlay: Play<Decoder<DecoderEventMap>>;
+  libavifDecoder: LibavifDecoder;
 
   constructor(
     url: string | Uint8Array,
@@ -46,60 +51,70 @@ export default class SoftAvifWeb {
     } else if (canvas instanceof Object) {
       option = canvas;
     }
-
+    // 合并配置项
     this.option = deepMixins(option, {
       decodeImmediately: true,
-      webgl: true,
+      webgl: false,
+      autoplay: false,
     } as SoftAvifWebOptions);
+    // 判断是元素id还是DOM对象
     if (typeof this.option.canvas === "string") {
       this.option.canvas = document.getElementById(
         this.option.canvas
       ) as HTMLCanvasElement;
     }
-    this.checkConstructor(url, this.option);
-    if (window._SoftAvifWebDecoderManager) {
-      this.decoderManager = window._SoftAvifWebDecoderManager;
-    } else {
-      this.decoderManager = window._SoftAvifWebDecoderManager =
-        new DecoderManager(workerDecoderUrl);
-    }
-    console.log(this.decoderManager);
 
+    this.checkConstructor(url, this.option);
     this.url = url;
-    this.avifPlay = new Play(this.option.canvas as HTMLCanvasElement, {
-      webgl: this.option.webgl,
-      loop: this.option.loop,
-    });
-    if (this.option.decodeImmediately) {
-      this.decoder(this.url);
-    }
+    this.resourceSymbolId = MD5(url as string).toString();
+    this.libavifDecoder = new LibavifDecoder(
+      workerDecoderUrl,
+      this.resourceSymbolId
+    );
+
+    this.animationPlayback = new AnimationPlayback(
+      this.option.canvas as HTMLCanvasElement,
+      this.libavifDecoder,
+      {
+        webgl: this.option.webgl,
+        loop: this.option.loop,
+      }
+    );
+    if (this.option.autoplay)
+      this.libavifDecoder.onmessageOnce(
+        WorkerAvifDecoderMessageChannel.initial,
+        () => {
+          this.decoderParsePlay(this.url);
+        }
+      );
   }
 
   pause() {
-    this.avifPlay.pause();
+    this.animationPlayback.pause();
   }
 
   play() {
-    if (this.avifPlay.paused) {
-      this.avifPlay.play();
-    } else {
-      if (!this.avifPlay.playing) this.decoder(this.url);
+    if (this.animationPlayback.paused) {
+      this.animationPlayback.play();
+    } else if (!this.animationPlayback.playing) {
+      this.decoderParsePlay(this.url);
     }
   }
 
-  private async decoder(url: string | ArrayBuffer) {
-    this.resourceSymbolId = MD5(url as string).toString();
-    const decoder = await this.decoderManager.decoder(this.resourceSymbolId);
-    if (!decoder.decoderParseComplete) {
-      decoder.once(DecoderChannel.avifParse, ({ width, height }) => {
-        (this.option.canvas as HTMLCanvasElement).width = width;
-        (this.option.canvas as HTMLCanvasElement).height = height;
-      });
+  private async decoderParsePlay(url: string | ArrayBuffer) {
+    if (!this.libavifDecoder.decoderParseComplete) {
+      this.libavifDecoder.once(
+        DecoderChannel.avifParse,
+        ({ width, height }) => {
+          (this.option.canvas as HTMLCanvasElement).width = width;
+          (this.option.canvas as HTMLCanvasElement).height = height;
+        }
+      );
       this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
+      await this.libavifDecoder.decoderParse(this.avifFileArrayBuffer!);
+      this.animationPlayback.initRender();
     }
-    await decoder.decoderParse(this.avifFileArrayBuffer!);
-    this.avifPlay.setDecoder(decoder);
-    this.avifPlay.play();
+    this.animationPlayback.play();
   }
 
   /**
@@ -121,7 +136,11 @@ export default class SoftAvifWeb {
     const res = await fetch(url);
     return await res.arrayBuffer();
   }
-
+  /**
+   * 检查构造参数
+   * @param url
+   * @param option
+   */
   private checkConstructor(
     url: string | Uint8Array,
     option: SoftAvifWebOptions

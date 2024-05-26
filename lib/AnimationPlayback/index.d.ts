@@ -20,7 +20,7 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     loopCount: number;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
-    setDecoder(decoder: D): void;
+    initRender(): void;
     play(index?: number): void;
     pause(): void;
     update(decoder: D): Promise<void>;

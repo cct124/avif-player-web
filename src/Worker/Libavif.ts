@@ -26,17 +26,16 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   constructor(awsmAvifDecode: any) {
     super();
     this.AwsmAvifDecode = awsmAvifDecode;
-    // this.avifImageCachePtr = this.AwsmAvifDecode._avifCreateAvifImageCache();
 
     this.on(
       WorkerAvifDecoderMessageChannel.avifDecoderParse,
       ({ id, yueCache }, arrayBuffer) => {
-        console.log(id);
-
         this.yueCache = yueCache;
         if (id && arrayBuffer?.byteLength) {
           if (!this.decoderPtr) this.avifDecoderParse(arrayBuffer);
           if (this.yueCache) {
+            this.avifImageCachePtr =
+              this.AwsmAvifDecode._avifCreateAvifImageCache();
             this.decoderNthImage = this.avifDecoderNthCacheImage;
             if (this.imageCount > 0) {
               this.avifInitializeCacheEntry(id, this.imageCount);
@@ -66,39 +65,41 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
   avifDecoderParse(arrayBuffer: ArrayBuffer) {
     try {
-      // Allocate and copy the image file data to WASM memory
       const bufferSize = arrayBuffer.byteLength;
-      // await onRuntimeInitialized;
       this.bufferPtr = this.AwsmAvifDecode._malloc(bufferSize);
+      if (!this.bufferPtr) {
+        throw new Error("Failed to allocate memory for buffer");
+      }
+
       this.AwsmAvifDecode.HEAPU8.set(
         new Uint8Array(arrayBuffer),
         this.bufferPtr
       );
 
-      // Create AVIF decoder
       this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
       if (!this.decoderPtr) {
-        this.error(new Error("Memory allocation failure"));
-        return;
+        this.free(this.bufferPtr);
+        throw new Error("Failed to create decoder");
       }
 
-      // Set IO memory
       let result = this.AwsmAvifDecode._avifDecoderSetIOMemory(
         this.decoderPtr,
         this.bufferPtr,
         bufferSize
       );
-
       if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-        this.error(
-          new Error(`Failed to set IO memory: ${this.resultToStr(result)}`)
-        );
-        if (this.bufferPtr) this.free(this.bufferPtr);
-        return;
+        this.free(this.bufferPtr);
+        this.free(this.decoderPtr);
+        throw new Error(`Failed to set IO memory: ${this.resultToStr(result)}`);
       }
 
-      // Parse the image
       result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
+      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+        this.free(this.bufferPtr);
+        this.free(this.decoderPtr);
+        throw new Error(`Failed to parse image: ${this.resultToStr(result)}`);
+      }
+
       this.imageCount = this.AwsmAvifDecode._avifGetImageCount(this.decoderPtr);
       this.width = this.AwsmAvifDecode._avifGetImageWidth(this.decoderPtr);
       this.height = this.AwsmAvifDecode._avifGetImageHeight(this.decoderPtr);
@@ -149,9 +150,9 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         t1,
         rbgPtr
       );
-      this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
-      this.free(rbgPtr);
-      this.free(timingPtr);
+      // this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
+      // this.free(rbgPtr);
+      // this.free(timingPtr);
     }
 
     if (frameIndex === this.imageCount) {
@@ -326,6 +327,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
           width * height * 4
         );
         const pixels = _pixels.slice();
+
         this.send(
           WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
           {

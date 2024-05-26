@@ -1,4 +1,5 @@
 import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
+import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 export default class SoftAvifWeb {
     url: string | Uint8Array;
     /**
@@ -8,7 +9,6 @@ export default class SoftAvifWeb {
     /**
      * DecoderManager的管理对象，这个是全局共享的，注册到`window._SoftAvifWebDecoderManager`
      */
-    private decoderManager;
     /**
      * avif的Uint8Array文件数据
      */
@@ -17,11 +17,15 @@ export default class SoftAvifWeb {
      * 唯一资源标识
      */
     resourceSymbolId?: string;
-    private avifPlay;
+    /**
+     * 播放对象
+     */
+    private animationPlayback;
+    libavifDecoder: LibavifDecoder;
     constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | SoftAvifWebOptions, option?: SoftAvifWebOptions);
     pause(): void;
     play(): void;
-    private decoder;
+    private decoderParsePlay;
     /**
      * 获取avif文件的Uint8Array数据
      * @param url
@@ -29,5 +33,10 @@ export default class SoftAvifWeb {
      */
     private fillArrayBuffer;
     private fetchFileArrayBuffer;
+    /**
+     * 检查构造参数
+     * @param url
+     * @param option
+     */
     private checkConstructor;
 }

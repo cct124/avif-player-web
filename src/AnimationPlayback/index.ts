@@ -9,13 +9,13 @@ import {
 import { deepMixins, timeout } from "../utils";
 import { PlayChannelType, PlayEventMap } from "./type";
 
-export default class Play<
+export default class AnimationPlayback<
   D extends Decoder<DecoderEventMap>
 > extends Observer<PlayEventMap> {
   playing = false;
   paused = false;
   option: PlayOptions;
-  decoder?: D;
+  decoder: D;
   canvas: HTMLCanvasElement;
   ctx2d?: CanvasRenderingContext2D;
   gl?: WebGLRenderingContext;
@@ -31,7 +31,7 @@ export default class Play<
     width: number,
     height: number
   ) => void;
-  constructor(canvas: HTMLCanvasElement, option: PlayOptions = {}) {
+  constructor(canvas: HTMLCanvasElement, decoder: D, option: PlayOptions = {}) {
     super();
     this.option = deepMixins(option, {
       webgl: true,
@@ -39,23 +39,21 @@ export default class Play<
     });
     if (this.option.loop === 0) this.option.loop = Infinity;
     this.canvas = canvas;
+    this.decoder = decoder;
   }
 
-  setDecoder(decoder: D) {
-    if (!this.decoder) {
-      this.decoder = decoder;
-      if (this.option.webgl) {
-        this.gl = this.canvas.getContext("webgl")!;
-        if (this.gl) {
-          this.webglInit(this.gl);
-          this.render = this.renderWebgl;
-        } else {
-          throw new Error("webgl对象创建失败", this.gl);
-        }
+  initRender() {
+    if (this.option.webgl) {
+      this.gl = this.canvas.getContext("webgl")!;
+      if (this.gl) {
+        this.webglInit(this.gl);
+        this.render = this.renderWebgl;
       } else {
-        this.ctx2d = this.canvas.getContext("2d")!;
-        this.render = this.renderCanvas;
+        throw new Error("webgl对象创建失败", this.gl);
       }
+    } else {
+      this.ctx2d = this.canvas.getContext("2d")!;
+      this.render = this.renderCanvas;
     }
   }
 
@@ -117,6 +115,8 @@ export default class Play<
   webglInit(gl: WebGLRenderingContext) {
     // 创建并配置纹理
     const texture = gl.createTexture();
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -150,6 +150,7 @@ export default class Play<
             varying vec2 vUV;
             uniform sampler2D texture;
             void main() {
+              vec4 texColor = texture2D(texture, vUV);
               gl_FragColor = texture2D(texture, vUV);
             }
           `
