@@ -112,6 +112,8 @@ export default class AnimationPlayback<
       }
       this.index = 0;
     }
+    this.index = 0;
+    this.loopCount = 0;
     this.softAvifWeb.emit(SoftAvifWebChannel.end, true);
     this.playing = false;
   }
