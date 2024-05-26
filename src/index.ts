@@ -12,11 +12,13 @@ import {
 import { Decoder } from "./Decoder";
 import { PlayChannelType } from "./AnimationPlayback/type";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
+import { Observer } from "./Observer";
+import { SoftAvifWebEventMap } from "./types";
 
 const blob = new Blob([workerScript], { type: "text/javascript" });
 const workerDecoderUrl = URL.createObjectURL(blob);
 
-export default class SoftAvifWeb {
+export default class SoftAvifWeb extends Observer<SoftAvifWebEventMap> {
   url: string | Uint8Array;
   /**
    * 可选配置
@@ -46,6 +48,7 @@ export default class SoftAvifWeb {
     canvas: string | HTMLCanvasElement | SoftAvifWebOptions,
     option: SoftAvifWebOptions = {}
   ) {
+    super();
     if (typeof canvas === "string" || canvas instanceof HTMLCanvasElement) {
       option.canvas = canvas;
     } else if (canvas instanceof Object) {
@@ -73,6 +76,7 @@ export default class SoftAvifWeb {
     );
 
     this.animationPlayback = new AnimationPlayback(
+      this,
       this.option.canvas as HTMLCanvasElement,
       this.libavifDecoder,
       {

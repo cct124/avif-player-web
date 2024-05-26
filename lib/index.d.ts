@@ -1,6 +1,8 @@
 import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
-export default class SoftAvifWeb {
+import { Observer } from "./Observer";
+import { SoftAvifWebEventMap } from "./types";
+export default class SoftAvifWeb extends Observer<SoftAvifWebEventMap> {
     url: string | Uint8Array;
     /**
      * 可选配置

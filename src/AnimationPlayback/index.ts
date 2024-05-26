@@ -1,5 +1,7 @@
+import SoftAvifWeb from "..";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
+import { SoftAvifWebChannel } from "../types";
 import { PlayOptions } from "../types/PlayType";
 import {
   DecoderImageData,
@@ -26,13 +28,20 @@ export default class AnimationPlayback<
   lastTimestamp = 0;
   renderStats: number[] = [];
   loopCount = 0;
+  softAvifWeb: SoftAvifWeb;
   render!: (
     arrayBuffer: Uint8ClampedArray,
     width: number,
     height: number
   ) => void;
-  constructor(canvas: HTMLCanvasElement, decoder: D, option: PlayOptions = {}) {
+  constructor(
+    softAvifWeb: SoftAvifWeb,
+    canvas: HTMLCanvasElement,
+    decoder: D,
+    option: PlayOptions = {}
+  ) {
     super();
+    this.softAvifWeb = softAvifWeb;
     this.option = deepMixins(option, {
       webgl: true,
       loop: 1,
@@ -75,6 +84,7 @@ export default class AnimationPlayback<
   async update(decoder: D) {
     this.paused = false;
     this.playing = true;
+    this.softAvifWeb.emit(SoftAvifWebChannel.play, true);
     this.lastTimestamp = performance.now();
     for (
       this.loopCount = this.loopCount;
@@ -95,13 +105,14 @@ export default class AnimationPlayback<
         this.lastTimestamp = performance.now();
         this.index++;
         if (this.paused) {
+          this.softAvifWeb.emit(SoftAvifWebChannel.pause, true);
           this.playing = false;
           return;
         }
       }
       this.index = 0;
     }
-
+    this.softAvifWeb.emit(SoftAvifWebChannel.end, true);
     this.playing = false;
   }
 
