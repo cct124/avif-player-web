@@ -66,7 +66,7 @@ export declare class MainEventEmitter<W, M> extends Decoder<M> {
      * @param handler
      * @returns
      */
-    clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void): false | undefined;
+    clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void): boolean;
     /**
      * 监听Worker线程发送的事件
      * @param channel

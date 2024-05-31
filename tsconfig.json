@@ -1,26 +1,18 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "ES2015",
     "lib": [
-      "dom",
-      "esnext",
-      "webworker",
+      "WebWorker",
+      "DOM"
     ],
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": true,
+    "module": "NodeNext",
+    "target": "es6",
+    "allowJs": true,
     "declaration": true,
     "outDir": "./lib",
-    "sourceMap": false,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "moduleResolution": "node",
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "index.d.ts",
-  ],
-  "exclude": [
-    "lib",
-    "node_modules",
+  "files": [
+    "src/index.ts"
   ]
 }

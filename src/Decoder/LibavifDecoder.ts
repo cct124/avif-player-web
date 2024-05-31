@@ -7,7 +7,6 @@ import {
   AvifDecoderNextImageData,
 } from "../types/WorkerMessageType";
 import { MainEventEmitter } from "./index";
-import WebpackWorker from "worker-loader!";
 
 export class LibavifDecoder extends MainEventEmitter<
   WorkerAvifDecoderEventMap,
