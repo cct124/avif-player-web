@@ -1,15 +1,15 @@
-import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
+import { AvifPlayerWebOptions } from "./types/AvifPlayerWebType";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 import { Observer } from "./Observer";
-import { SoftAvifWebEventMap } from "./types";
-export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
+import { AvifPlayerWebEventMap } from "./types/AvifPlayerWebType";
+export default class AvifPlayerWeb extends Observer<AvifPlayerWebEventMap> {
     url: string | Uint8Array;
     /**
      * 可选配置
      */
     private option;
     /**
-     * DecoderManager的管理对象，这个是全局共享的，注册到`window._SoftAvifWebDecoderManager`
+     * DecoderManager的管理对象，这个是全局共享的，注册到`window._AvifPlayerWebDecoderManager`
      */
     /**
      * avif的Uint8Array文件数据
@@ -24,7 +24,7 @@ export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
      */
     private animationPlayback;
     libavifDecoder: LibavifDecoder;
-    constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | SoftAvifWebOptions, option?: SoftAvifWebOptions);
+    constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | AvifPlayerWebOptions, option?: AvifPlayerWebOptions);
     pause(): void;
     play(): void;
     private decoderParsePlay;

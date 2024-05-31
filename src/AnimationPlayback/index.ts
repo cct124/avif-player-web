@@ -1,7 +1,7 @@
-import SoftAvifWeb from "..";
+import AvifPlayerWeb from "..";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
-import { SoftAvifWebChannel } from "../types";
+import { AvifPlayerWebChannel } from "../types/AvifPlayerWebType";
 import { PlayOptions } from "../types/PlayType";
 import {
   DecoderImageData,
@@ -12,7 +12,7 @@ import { deepMixins, timeout } from "../utils";
 import { PlayChannelType, PlayEventMap } from "./type";
 
 export default class AnimationPlayback<
-  D extends Decoder<DecoderEventMap>
+  D extends Decoder<DecoderEventMap>,
 > extends Observer<PlayEventMap> {
   playing = false;
   paused = false;
@@ -28,20 +28,20 @@ export default class AnimationPlayback<
   lastTimestamp = 0;
   renderStats: number[] = [];
   loopCount = 0;
-  softAvifWeb: SoftAvifWeb;
+  AvifPlayerWeb: AvifPlayerWeb;
   render!: (
     arrayBuffer: Uint8ClampedArray,
     width: number,
     height: number
   ) => void;
   constructor(
-    softAvifWeb: SoftAvifWeb,
+    AvifPlayerWeb: AvifPlayerWeb,
     canvas: HTMLCanvasElement,
     decoder: D,
     option: PlayOptions = {}
   ) {
     super();
-    this.softAvifWeb = softAvifWeb;
+    this.AvifPlayerWeb = AvifPlayerWeb;
     this.option = deepMixins(option, {
       webgl: true,
       loop: 1,
@@ -50,7 +50,7 @@ export default class AnimationPlayback<
     this.canvas = canvas;
     this.decoder = decoder;
     this.on(PlayChannelType.frameIndexChange, (data) => {
-      this.softAvifWeb.emit(SoftAvifWebChannel.frameIndexChange, data);
+      this.AvifPlayerWeb.emit(AvifPlayerWebChannel.frameIndexChange, data);
     });
   }
 
@@ -87,7 +87,7 @@ export default class AnimationPlayback<
   async update(decoder: D) {
     this.paused = false;
     this.playing = true;
-    this.softAvifWeb.emit(SoftAvifWebChannel.play, true);
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
     this.lastTimestamp = performance.now();
     for (
       this.loopCount = this.loopCount;
@@ -113,7 +113,7 @@ export default class AnimationPlayback<
         // this.lastTimestamp = performance.now();
         this.index++;
         if (this.paused) {
-          this.softAvifWeb.emit(SoftAvifWebChannel.pause, true);
+          this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
           this.playing = false;
           return;
         }
@@ -123,7 +123,7 @@ export default class AnimationPlayback<
     }
     this.index = 0;
     this.loopCount = 0;
-    this.softAvifWeb.emit(SoftAvifWebChannel.end, true);
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, true);
     this.playing = false;
   }
 

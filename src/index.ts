@@ -1,4 +1,4 @@
 import AvifPlayerWeb from "./AvifPlayerWeb";
-export { SoftAvifWebChannel } from "./types/index";
+export { AvifPlayerWebChannel } from "./types/AvifPlayerWebType";
 
 export default AvifPlayerWeb;
