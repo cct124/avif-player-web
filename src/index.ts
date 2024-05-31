@@ -1,1 +1,1 @@
-console.log("Hello World!");
+export default class Test {}
