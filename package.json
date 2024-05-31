@@ -1,10 +1,37 @@
 {
   "name": "avif-player-web",
   "version": "0.0.1",
-  "main": "lib/index.js",
-  "repository": "https://github.com/cct124/avif-player-web.git",
-  "author": "Jane <huangdonghao1997@gmail.com>",
-  "license": "MIT",
+  "description": "使用webassembly软解播放AVIF动画文件",
+  "main": "./lib/index.js",
+  "browser": "./lib/index.js",
+  "typings": "./lib/index.d.ts",
+  "scripts": {
+    "build": "webpack --mode=production --node-env=production",
+    "build:dev": "webpack --mode=development",
+    "build:prod": "webpack --mode=production --node-env=production",
+    "watch": "webpack --watch",
+    "serve": "webpack serve",
+    "pub": "npm publish",
+    "patch": "npm version patch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cct124/avif-player-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cct124/avif-player-web/issues"
+  },
+  "homepage": "https://github.com/cct124/avif-player-web",
+  "keywords": [
+    "canvas",
+    "avif",
+    "libavif",
+    "avif-decoder",
+    "animation",
+    "webassembly"
+  ],
+  "author": "Jane",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
     "@webpack-cli/generators": "^3.0.7",
@@ -15,14 +42,6 @@
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.0.4",
     "worker-loader": "^3.0.8"
-  },
-  "description": "My webpack project",
-  "scripts": {
-    "build": "webpack --mode=production --node-env=production",
-    "build:dev": "webpack --mode=development",
-    "build:prod": "webpack --mode=production --node-env=production",
-    "watch": "webpack --watch",
-    "serve": "webpack serve"
   },
   "dependencies": {
     "crypto-js": "^4.2.0"
