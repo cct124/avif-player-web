@@ -20,12 +20,26 @@ const config = {
         open: true,
         host: 'localhost',
     },
+    // 其他配置项
+    stats: {
+        children: true,
+    },
     plugins: [
         // Add your plugins here
         // Learn more about plugins from https://webpack.js.org/configuration/plugins/
     ],
     module: {
         rules: [
+            {
+                test: /\.worker\.(ts|tsx)$/,
+                use: {
+                    loader: "worker-loader",
+                    options: {
+                        inline: 'no-fallback'
+                    }
+                },
+
+            },
             {
                 test: /\.(ts|tsx)$/i,
                 loader: 'ts-loader',
@@ -35,6 +49,7 @@ const config = {
                 test: /\.(eot|svg|ttf|woff|woff2|png|jpg|gif)$/i,
                 type: 'asset',
             },
+
 
             // Add your rules for custom modules here
             // Learn more about loaders from https://webpack.js.org/loaders/
