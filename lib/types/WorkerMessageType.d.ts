@@ -31,7 +31,11 @@ export declare enum WorkerAvifDecoderMessageChannel {
     /**
      * 解码指定帧数据解码完成
      */
-    avifDecoderNthImageResult = 8
+    avifDecoderNthImageResult = 8,
+    /**
+     * 销毁解码器
+     */
+    avifDecoderDestroy = 9
 }
 export declare enum DecoderChannel {
     error = 0,
@@ -41,13 +45,18 @@ export declare enum DecoderChannel {
     /**
      * 所有图像数据解码完成
      */
-    decodeComplete = 4
+    decodeComplete = 4,
+    /**
+     * 销毁解码器
+     */
+    destroy = 5
 }
 export interface DecoderEventMap {
     [DecoderChannel.error]: Error | ErrorEvent;
     [DecoderChannel.nextImage]: DecoderAvifImageData;
     [DecoderChannel.avifParse]: AvifParseData;
     [DecoderChannel.decodeComplete]: {};
+    [DecoderChannel.destroy]: {};
 }
 export interface AvifParseData {
     /**
@@ -147,4 +156,5 @@ export interface WorkerAvifDecoderEventMap {
     };
     [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNthImageData;
     [WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult]: AvifDecoderNextImageData;
+    [WorkerAvifDecoderMessageChannel.avifDecoderDestroy]: {};
 }

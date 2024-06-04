@@ -74,5 +74,6 @@ export declare class MainEventEmitter<W, M> extends Decoder<M> {
      */
     onmessage<T extends keyof W>(channel: T, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
     private listenOnmessage;
+    setDecoder(worker: Worker): void;
 }
 export {};

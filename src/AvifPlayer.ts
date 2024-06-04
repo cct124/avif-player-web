@@ -13,7 +13,7 @@ import { Decoder } from "./Decoder";
 import { PlayChannelType } from "./AnimationPlayback/type";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 import { Observer } from "./Observer";
-import { AvifPlayerWebEventMap } from "./types";
+import { AvifPlayerWebChannel, AvifPlayerWebEventMap } from "./types";
 
 export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   url: string | Uint8Array;
@@ -71,20 +71,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     this.checkConstructor(url, this.option);
     this.url = url;
     this.resourceSymbolId = MD5(url as string).toString();
-    this.libavifDecoder = new LibavifDecoder(
-      new WebpackWorker() as unknown as Worker,
-      this.resourceSymbolId
-    );
-
-    this.animationPlayback = new AnimationPlayback(
-      this,
-      this.option.canvas as HTMLCanvasElement,
-      this.libavifDecoder,
-      {
-        webgl: this.option.webgl,
-        loop: this.option.loop,
-      }
-    );
+    this.initialLibavifDecoder();
     if (this.option.autoplay)
       this.libavifDecoder.onmessageOnce(
         WorkerAvifDecoderMessageChannel.initial,
@@ -94,12 +81,51 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
       );
   }
 
+  initialLibavifDecoder(reset?: boolean) {
+    return new Promise<LibavifDecoder>((resolve, reject) => {
+      try {
+        this.libavifDecoder = new LibavifDecoder(
+          new WebpackWorker() as unknown as Worker,
+          this.resourceSymbolId
+        );
+        if (reset) {
+          this.animationPlayback.setDecoder(this.libavifDecoder);
+        } else {
+          this.animationPlayback = new AnimationPlayback(
+            this,
+            this.option.canvas as HTMLCanvasElement,
+            this.libavifDecoder,
+            {
+              webgl: this.option.webgl,
+              loop: this.option.loop,
+            }
+          );
+        }
+
+        this.libavifDecoder.onmessageOnce(
+          WorkerAvifDecoderMessageChannel.initial,
+          () => {
+            resolve(this.libavifDecoder);
+          }
+        );
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   pause() {
     this.animationPlayback.pause();
   }
 
-  play() {
-    if (this.animationPlayback.paused) {
+  async play() {
+    // 解码器对象不存在时，解码器可能被销毁，这时重新初始化解码器
+    if (!this.libavifDecoder) {
+      await this.initialLibavifDecoder(true);
+      this.avifFileArrayBuffer = await this.fillArrayBuffer(this.url);
+      await this.libavifDecoder.decoderParse(this.avifFileArrayBuffer!);
+      this.animationPlayback.play();
+    } else if (this.animationPlayback.paused) {
       this.animationPlayback.play();
     } else if (!this.animationPlayback.playing) {
       this.decoderParsePlay(this.url);
@@ -160,10 +186,22 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
 
   /**
    * 判断是否支持av1视频编码
-   * @returns 
+   * @returns
    */
   hasAv1Support() {
     const vid = document.createElement("video");
     return vid.canPlayType('video/mp4; codecs="av01.0.05M.08"') === "probably";
+  }
+
+  /**
+   * 销毁解码器`Worker`线程
+   *
+   * 播放将暂停帧索引重置为0
+   */
+  destroy() {
+    this.emit(AvifPlayerWebChannel.destroy, {});
+    this.animationPlayback.pause(0);
+    this.libavifDecoder.destroy();
+    this.libavifDecoder = null;
   }
 }

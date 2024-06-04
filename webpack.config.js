@@ -14,7 +14,6 @@ const config = {
             name: 'AvifPlayerWeb',
             type: 'umd',
         },
-        clean: true,
     },
     devtool: isProduction ? undefined : 'eval-source-map',
     devServer: {

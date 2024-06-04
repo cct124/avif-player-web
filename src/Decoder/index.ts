@@ -65,12 +65,7 @@ export class MainEventEmitter<W, M> extends Decoder<M> {
 
   constructor(worker: Worker) {
     super();
-    this.worker = worker;
-    this.worker.onmessage = <T extends keyof W>(
-      ev: MessageEvent<MessageEventType<T, W[T]>>
-    ) => {
-      this.listenOnmessage(ev);
-    };
+    this.setDecoder(worker);
   }
 
   /**
@@ -155,5 +150,14 @@ export class MainEventEmitter<W, M> extends Decoder<M> {
         listener(data, arrayBuffer);
       }
     }
+  }
+
+  setDecoder(worker: Worker) {
+    this.worker = worker;
+    this.worker.onmessage = <T extends keyof W>(
+      ev: MessageEvent<MessageEventType<T, W[T]>>
+    ) => {
+      this.listenOnmessage(ev);
+    };
   }
 }

@@ -22,9 +22,13 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     AvifPlayerWeb: AvifPlayerWeb;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
+    setDecoder(decoder: D): void;
     initRender(): void;
     play(index?: number): void;
-    pause(): void;
+    /**
+     * 暂停播放
+     */
+    pause(index?: number): void;
     update(decoder: D): Promise<void>;
     awaitNextFrameDecode(decoder: D): Promise<unknown>;
     webglInit(gl: WebGLRenderingContext): void;
