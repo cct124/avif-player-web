@@ -1,4 +1,4 @@
-import SoftAvifWeb from "..";
+import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import { PlayOptions } from "../types/PlayType";
@@ -19,9 +19,9 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     lastTimestamp: number;
     renderStats: number[];
     loopCount: number;
-    softAvifWeb: SoftAvifWeb;
+    AvifPlayerWeb: AvifPlayerWeb;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
-    constructor(softAvifWeb: SoftAvifWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
+    constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
     initRender(): void;
     play(index?: number): void;
     pause(): void;

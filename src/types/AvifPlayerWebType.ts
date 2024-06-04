@@ -1,7 +1,7 @@
 /**
  * 可选配置项
  */
-export interface SoftAvifWebOptions {
+export interface AvifPlayerWebOptions {
   canvas?: string | HTMLCanvasElement;
   /**
    * 启用webgl api渲染
@@ -17,6 +17,6 @@ export interface SoftAvifWebOptions {
   autoplay?: boolean;
 }
 
-export enum SoftAvifWebMessageType {}
+export enum AvifPlayerWebMessageType {}
 
-export interface SoftAvifWebEventMap {}
+export interface AvifPlayerWebEventMap {}

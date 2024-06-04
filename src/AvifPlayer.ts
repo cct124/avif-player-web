@@ -1,7 +1,7 @@
 import MD5 from "crypto-js/md5";
 import WebpackWorker from "./Worker/main.worker";
 // import DecoderManager from "./DecoderManager/index";
-import { SoftAvifWebOptions } from "./types/SoftAvifWebType";
+import { AvifPlayerWebOptions } from "./types/AvifPlayerWebType";
 import { deepMixins } from "./utils";
 import AnimationPlayback from "./AnimationPlayback";
 import {
@@ -13,16 +13,16 @@ import { Decoder } from "./Decoder";
 import { PlayChannelType } from "./AnimationPlayback/type";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 import { Observer } from "./Observer";
-import { SoftAvifWebEventMap } from "./types";
+import { AvifPlayerWebEventMap } from "./types";
 
-export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
+export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   url: string | Uint8Array;
   /**
    * 可选配置
    */
-  private option: SoftAvifWebOptions;
+  private option: AvifPlayerWebOptions;
   /**
-   * DecoderManager的管理对象，这个是全局共享的，注册到`window._SoftAvifWebDecoderManager`
+   * DecoderManager的管理对象，这个是全局共享的，注册到`window._AvifPlayerWebDecoderManager`
    */
   // private decoderManager: DecoderManager;
   /**
@@ -37,13 +37,17 @@ export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
    * 播放对象
    */
   private animationPlayback: AnimationPlayback<Decoder<DecoderEventMap>>;
+  /**
+   * 是否支持av1视频编码
+   */
+  private av1Support = false;
 
   libavifDecoder: LibavifDecoder;
 
   constructor(
     url: string | Uint8Array,
-    canvas: string | HTMLCanvasElement | SoftAvifWebOptions,
-    option: SoftAvifWebOptions = {}
+    canvas: string | HTMLCanvasElement | AvifPlayerWebOptions,
+    option: AvifPlayerWebOptions = {}
   ) {
     super();
     if (typeof canvas === "string" || canvas instanceof HTMLCanvasElement) {
@@ -56,7 +60,7 @@ export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
       decodeImmediately: true,
       webgl: false,
       autoplay: false,
-    } as SoftAvifWebOptions);
+    } as AvifPlayerWebOptions);
     // 判断是元素id还是DOM对象
     if (typeof this.option.canvas === "string") {
       this.option.canvas = document.getElementById(
@@ -144,7 +148,7 @@ export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
    */
   private checkConstructor(
     url: string | Uint8Array,
-    option: SoftAvifWebOptions
+    option: AvifPlayerWebOptions
   ) {
     if (!url) throw new Error("请传入Avif文件Url或Uint8Array文件数据");
     if (
@@ -152,5 +156,14 @@ export default class AvifPlayerWeb extends Observer<SoftAvifWebEventMap> {
       !((option.canvas as any) instanceof HTMLCanvasElement)
     )
       throw new Error("请传入canvas元素ID或canvas DOM对象");
+  }
+
+  /**
+   * 判断是否支持av1视频编码
+   * @returns 
+   */
+  hasAv1Support() {
+    const vid = document.createElement("video");
+    return vid.canPlayType('video/mp4; codecs="av01.0.05M.08"') === "probably";
   }
 }

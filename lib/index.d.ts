@@ -1,3 +1,7 @@
-import AvifPlayerWeb from "./AvifPlayerWeb";
-export { SoftAvifWebChannel } from "./types/index";
-export default AvifPlayerWeb;
+import AvifPlayer from "./AvifPlayer";
+import { AvifPlayerWebChannel } from "./types/index";
+declare const _default: {
+    AvifPlayer: typeof AvifPlayer;
+    AvifPlayerWebChannel: typeof AvifPlayerWebChannel;
+};
+export default _default;

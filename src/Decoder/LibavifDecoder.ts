@@ -105,7 +105,6 @@ export class LibavifDecoder extends MainEventEmitter<
           WorkerAvifDecoderMessageChannel.avifDecoderParse,
           {
             id: this.id,
-            yueCache: false,
           },
           arrayBuffer
         );

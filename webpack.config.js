@@ -16,6 +16,7 @@ const config = {
         },
         clean: true,
     },
+    devtool: isProduction ? undefined : 'eval-source-map',
     devServer: {
         open: true,
         host: 'localhost',
