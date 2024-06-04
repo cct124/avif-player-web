@@ -17,7 +17,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   avifImageCachePtr?: number;
   index = 0;
   imageCount = 0;
-  yueCache = false;
   timingCache = new Map<string, AvifImageTiming[]>();
   decoderNthImage!: (id: string, frameIndex: number) => void;
   rbgPtr?: number;
@@ -29,23 +28,10 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
     this.on(
       WorkerAvifDecoderMessageChannel.avifDecoderParse,
-      ({ id, yueCache }, arrayBuffer) => {
-        this.yueCache = yueCache;
+      ({ id }, arrayBuffer) => {
         if (id && arrayBuffer?.byteLength) {
           if (!this.decoderPtr) this.avifDecoderParse(arrayBuffer);
-          if (this.yueCache) {
-            this.avifImageCachePtr =
-              this.AwsmAvifDecode._avifCreateAvifImageCache();
-            this.decoderNthImage = this.avifDecoderNthCacheImage;
-            if (this.imageCount > 0) {
-              this.avifInitializeCacheEntry(id, this.imageCount);
-              this.timingCache.set(id, new Array(this.imageCount).fill(null));
-            } else {
-              throw new Error(`没有图像数据，imageCount：${this.imageCount}`);
-            }
-          } else {
-            this.decoderNthImage = this.avifDecoderNthImage;
-          }
+          this.decoderNthImage = this.avifDecoderNthImage;
         } else {
           throw new Error(`参数错误 id: ${id} arrayBuffer: ${arrayBuffer}`);
         }
@@ -159,58 +145,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
     if (frameIndex === this.imageCount) {
       this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
-    }
-  }
-
-  avifDecoderNthCacheImage(id: string, frameIndex: number) {
-    if (!this.timingCache.has(id)) throw new Error(`未初始化解码器 ID: #{id}`);
-    const timings = this.timingCache.get(id)!;
-    const imagePtr = this.avifGetCacheImage(id, frameIndex);
-    if (imagePtr) {
-      let t1 = performance.now();
-      const timing = timings[frameIndex];
-      this.avifDecoderNthImageResult(
-        id,
-        imagePtr,
-        timing,
-        frameIndex,
-        t1,
-        this.rbgPtr!
-      );
-    } else {
-      let t1 = performance.now();
-      let result = 0;
-
-      if (
-        (result = this.AwsmAvifDecode._avifDecoderNthImage(
-          this.decoderPtr,
-          frameIndex
-        )) === AVIF_RESULT.AVIF_RESULT_OK
-      ) {
-        const srcImage = this.AwsmAvifDecode._avifGetDecoderImage(
-          this.decoderPtr
-        );
-        const timingPtr = this.AwsmAvifDecode._avifGetImageTiming(
-          this.decoderPtr,
-          frameIndex
-        );
-        const dstImage = this.AwsmAvifDecode._avifGetCreateImage();
-        this.AwsmAvifDecode._avifGetCopyImage(srcImage, dstImage);
-        const timing = this.getImageTiming(timingPtr);
-        timings[frameIndex] = timing;
-        this.avifCacheImage(id, dstImage, frameIndex);
-        this.avifDecoderNthImageResult(
-          id,
-          dstImage,
-          timing,
-          frameIndex,
-          t1,
-          this.rbgPtr!
-        );
-      }
-      if (frameIndex === this.imageCount) {
-        this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
-      }
     }
   }
 
@@ -387,33 +321,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
     return this.AwsmAvifDecode.UTF8ToString(
       this.AwsmAvifDecode._avifVersion()
     ) as string;
-  }
-
-  avifInitializeCacheEntry(id: string, count: number) {
-    this.AwsmAvifDecode.ccall(
-      "avifInitializeCacheEntry",
-      "void",
-      ["number", "string", "number"],
-      [this.avifImageCachePtr, id, count]
-    );
-  }
-
-  avifGetCacheImage(id: string, index: number): number {
-    return this.AwsmAvifDecode.ccall(
-      "avifGetCacheImage",
-      "number",
-      ["number", "string", "number"],
-      [this.avifImageCachePtr, id, index]
-    );
-  }
-
-  avifCacheImage(id: string, image: number, index: number) {
-    this.AwsmAvifDecode.ccall(
-      "avifCacheImage",
-      "void",
-      ["number", "string", "number", "number"],
-      [this.avifImageCachePtr, id, image, index]
-    );
   }
 
   resultToStr(result: number) {

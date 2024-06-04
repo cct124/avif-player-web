@@ -1,4 +1,4 @@
-import AvifPlayerWeb from "..";
+import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import { PlayOptions } from "../types/PlayType";

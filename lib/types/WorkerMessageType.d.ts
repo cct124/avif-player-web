@@ -124,10 +124,6 @@ export interface AvifDecoderParseData {
      * 唯一资源标识
      */
     id: string;
-    /**
-     * 开启yuv解码数据缓存，以提高下次播放时的解码速度，开启这个会占用大量内存，慎用
-     */
-    yueCache: boolean;
 }
 export interface AvifDecoderNthImageData {
     /**

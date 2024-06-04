@@ -13,9 +13,9 @@ import { Decoder } from "./Decoder";
 import { PlayChannelType } from "./AnimationPlayback/type";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 import { Observer } from "./Observer";
-import { AvifPlayerWebEventMap } from "./types/AvifPlayerWebType";
+import { AvifPlayerWebEventMap } from "./types";
 
-export default class AvifPlayerWeb extends Observer<AvifPlayerWebEventMap> {
+export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   url: string | Uint8Array;
   /**
    * 可选配置
@@ -37,6 +37,10 @@ export default class AvifPlayerWeb extends Observer<AvifPlayerWebEventMap> {
    * 播放对象
    */
   private animationPlayback: AnimationPlayback<Decoder<DecoderEventMap>>;
+  /**
+   * 是否支持av1视频编码
+   */
+  private av1Support = false;
 
   libavifDecoder: LibavifDecoder;
 
@@ -152,5 +156,14 @@ export default class AvifPlayerWeb extends Observer<AvifPlayerWebEventMap> {
       !((option.canvas as any) instanceof HTMLCanvasElement)
     )
       throw new Error("请传入canvas元素ID或canvas DOM对象");
+  }
+
+  /**
+   * 判断是否支持av1视频编码
+   * @returns 
+   */
+  hasAv1Support() {
+    const vid = document.createElement("video");
+    return vid.canPlayType('video/mp4; codecs="av01.0.05M.08"') === "probably";
   }
 }

@@ -1,7 +1,7 @@
-import AvifPlayerWeb from "..";
+import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
-import { AvifPlayerWebChannel } from "../types/AvifPlayerWebType";
+import { AvifPlayerWebChannel } from "../types";
 import { PlayOptions } from "../types/PlayType";
 import {
   DecoderImageData,
@@ -81,7 +81,7 @@ export default class AnimationPlayback<
   }
 
   pause() {
-    this.paused = true;
+    if (this.playing) this.paused = true;
   }
 
   async update(decoder: D) {

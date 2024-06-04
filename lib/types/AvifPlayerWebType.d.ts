@@ -1,7 +1,6 @@
 /**
  * 可选配置项
  */
-import { FrameIndexChangeEvent } from "../AnimationPlayback/type";
 export interface AvifPlayerWebOptions {
     canvas?: string | HTMLCanvasElement;
     /**
@@ -20,18 +19,4 @@ export interface AvifPlayerWebOptions {
 export declare enum AvifPlayerWebMessageType {
 }
 export interface AvifPlayerWebEventMap {
-}
-export declare enum AvifPlayerWebChannel {
-    error = "error",
-    play = "play",
-    pause = "pause",
-    end = "end",
-    frameIndexChange = "frameIndexChange"
-}
-export interface AvifPlayerWebEventMap {
-    [AvifPlayerWebChannel.error]: Error | ErrorEvent;
-    [AvifPlayerWebChannel.play]: boolean;
-    [AvifPlayerWebChannel.end]: boolean;
-    [AvifPlayerWebChannel.pause]: boolean;
-    [AvifPlayerWebChannel.frameIndexChange]: FrameIndexChangeEvent;
 }
