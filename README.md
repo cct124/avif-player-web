@@ -16,15 +16,25 @@ yarn add avif-player-web
 
 ## Example
 
+```html
+<canvas id="canvas2" class="canvas"></canvas>
+```
+
 ```typescript
-import AvifPlayerWeb, { AvifPlayerWebChannel } from "avif-player-web";
+import AvifPlayerWeb from "avif-player-web";
 
-const avifPlayerWeb = new AvifPlayerWeb(animSrc4, canvas.value!, {
-  autoplay: true,
-  webgl: false,
-});
+const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
+  "url.avif",
+  document.getElementById("canvas"),
+  {
+    autoplay: true,
+  }
+);
 
-avifPlayerWeb.on(AvifPlayerWebChannel.frameIndexChange, (data) => {
-  console.log(data.index);
-});
+AvifPlayerWeb.on(
+  AvifPlayerWeb.AvifPlayerWebChannel.frameIndexChange,
+  (data) => {
+    console.log(data.index);
+  }
+);
 ```
