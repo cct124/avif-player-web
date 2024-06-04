@@ -1,8 +1,3 @@
-// export interface MessageEventType<T, E> {
-//   channel: T;
-//   data: E;
-// }
-
 import { FrameIndexChangeEvent } from "../AnimationPlayback/type";
 
 export type MessageEventType<T, E> = [T, E, ArrayBuffer | undefined];
