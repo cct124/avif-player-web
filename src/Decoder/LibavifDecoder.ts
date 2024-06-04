@@ -125,4 +125,13 @@ export class LibavifDecoder extends MainEventEmitter<
       }
     );
   }
+
+  /**
+   * 销毁解码器
+   */
+  destroy() {
+    this.emit(DecoderChannel.destroy, {});
+    this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderDestroy, {});
+    this.worker = null;
+  }
 }

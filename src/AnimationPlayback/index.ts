@@ -54,6 +54,10 @@ export default class AnimationPlayback<
     });
   }
 
+  setDecoder(decoder: D) {
+    this.decoder = decoder;
+  }
+
   initRender() {
     if (this.option.webgl) {
       this.gl = this.canvas.getContext("webgl")!;
@@ -72,7 +76,7 @@ export default class AnimationPlayback<
   play(index?: number) {
     if (!this.playing) {
       if (this.decoder) {
-        if (index) this.index = index;
+        if (!isNaN(index)) this.index = index;
         this.update(this.decoder);
       } else {
         throw new Error("未设置解码器对象");
@@ -80,8 +84,14 @@ export default class AnimationPlayback<
     }
   }
 
-  pause() {
-    if (this.playing) this.paused = true;
+  /**
+   * 暂停播放
+   */
+  pause(index?: number) {
+    if (this.playing) {
+      this.paused = true;
+      if (!isNaN(index)) this.index = index;
+    }
   }
 
   async update(decoder: D) {
@@ -95,6 +105,11 @@ export default class AnimationPlayback<
       this.loopCount++
     ) {
       while (this.index < decoder.imageCount) {
+        if (this.paused) {
+          this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
+          this.playing = false;
+          return;
+        }
         // const t2 = performance.now();
         const imageData = await decoder.decoderNthImage(this.index);
         // const decodeTime = t2 - this.lastTimestamp;
@@ -112,11 +127,6 @@ export default class AnimationPlayback<
         });
         // this.lastTimestamp = performance.now();
         this.index++;
-        if (this.paused) {
-          this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
-          this.playing = false;
-          return;
-        }
       }
 
       this.index = 0;

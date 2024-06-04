@@ -29,8 +29,9 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     private av1Support;
     libavifDecoder: LibavifDecoder;
     constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | AvifPlayerWebOptions, option?: AvifPlayerWebOptions);
+    initialLibavifDecoder(reset?: boolean): Promise<LibavifDecoder>;
     pause(): void;
-    play(): void;
+    play(): Promise<void>;
     private decoderParsePlay;
     /**
      * 获取avif文件的Uint8Array数据
@@ -50,4 +51,10 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
      * @returns
      */
     hasAv1Support(): boolean;
+    /**
+     * 销毁解码器`Worker`线程
+     *
+     * 播放将暂停帧索引重置为0
+     */
+    destroy(): void;
 }
