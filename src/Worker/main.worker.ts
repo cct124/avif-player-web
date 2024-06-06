@@ -10,7 +10,6 @@ self.onmessage = (e) => {
 export default class InitialAvifDecodeFileWeb {
   libavif?: Libavif;
   constructor() {
-    self.postMessage([10, "libavif"]);
     this.initialAvifDecodeFileWeb();
   }
 
