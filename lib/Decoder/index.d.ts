@@ -1,5 +1,5 @@
 import { Observer } from "../Observer";
-import { DecoderImageData } from "../types/WorkerMessageType";
+import { DecoderEventMap, DecoderImageData } from "../types/WorkerMessageType";
 declare abstract class DecoderAbstract {
     /**
      * 进行解码操作
@@ -42,7 +42,7 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
     decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
     avifDecoderAllImage(): void;
 }
-export declare class MainEventEmitter<W, M> extends Decoder<M> {
+export declare class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
     private workerListeners;
     worker: Worker;
     constructor(worker: Worker);

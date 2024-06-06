@@ -36,9 +36,16 @@ export enum WorkerAvifDecoderMessageChannel {
    * 销毁解码器
    */
   avifDecoderDestroy = 9,
+  /**
+   * 输出
+   */
+  avifDecoderConsole = 10,
 }
-
 export enum DecoderChannel {
+  /**
+   * 和Workers线程建立通信
+   */
+  WorkerCommunication = -1,
   error = 0,
   nextImage = 1,
   avifParse = 2,
@@ -59,6 +66,7 @@ export interface DecoderEventMap {
   [DecoderChannel.avifParse]: AvifParseData;
   [DecoderChannel.decodeComplete]: {};
   [DecoderChannel.destroy]: {};
+  [DecoderChannel.WorkerCommunication]: {};
 }
 
 export interface AvifParseData {
@@ -163,4 +171,5 @@ export interface WorkerAvifDecoderEventMap {
   [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNthImageData;
   [WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult]: AvifDecoderNextImageData;
   [WorkerAvifDecoderMessageChannel.avifDecoderDestroy]: {};
+  [WorkerAvifDecoderMessageChannel.avifDecoderConsole]: {};
 }

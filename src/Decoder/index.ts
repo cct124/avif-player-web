@@ -1,6 +1,10 @@
 import { Observer } from "../Observer";
 import { MessageEventType } from "../types";
-import { DecoderImageData } from "../types/WorkerMessageType";
+import {
+  DecoderChannel,
+  DecoderEventMap,
+  DecoderImageData,
+} from "../types/WorkerMessageType";
 
 abstract class DecoderAbstract {
   /**
@@ -56,7 +60,7 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   avifDecoderAllImage() {}
 }
 
-export class MainEventEmitter<W, M> extends Decoder<M> {
+export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
   private workerListeners = new Map<
     keyof W,
     Set<(data: any, arrayBuffer?: ArrayBuffer) => void>
@@ -154,9 +158,14 @@ export class MainEventEmitter<W, M> extends Decoder<M> {
 
   setDecoder(worker: Worker) {
     this.worker = worker;
+    worker.postMessage([1, 1]);
+
     this.worker.onmessage = <T extends keyof W>(
       ev: MessageEvent<MessageEventType<T, W[T]>>
     ) => {
+      if ((ev as any).data === 2) {
+        return this.emit(DecoderChannel.WorkerCommunication, {});
+      }
       this.listenOnmessage(ev);
     };
   }

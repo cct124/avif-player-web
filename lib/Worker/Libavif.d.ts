@@ -26,4 +26,5 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
     free(ptr: number): void;
     UTF8ToString(ptr: number): any;
     avifSetDecoderMaxThreads(threads?: number): void;
+    print(data: any): void;
 }
