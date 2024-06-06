@@ -34,6 +34,12 @@ export class LibavifDecoder extends MainEventEmitter<
     this.onmessage(WorkerAvifDecoderMessageChannel.error, (error) => {
       this.emit(DecoderChannel.error, error);
     });
+    this.onmessage(
+      WorkerAvifDecoderMessageChannel.avifDecoderConsole,
+      (data) => {
+        console.log(data);
+      }
+    );
   }
 
   /**

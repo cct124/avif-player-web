@@ -7,7 +7,7 @@
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
     "module": "NodeNext",
-    "target": "es6",
+    "target": "ES2015",
     "allowJs": true,
     "declaration": true,
     "sourceMap": true,

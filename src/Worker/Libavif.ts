@@ -347,4 +347,8 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       [this.decoderPtr, threads]
     );
   }
+
+  print(data: any) {
+    this.send(WorkerAvifDecoderMessageChannel.avifDecoderConsole, data);
+  }
 }
