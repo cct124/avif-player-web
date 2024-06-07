@@ -58,6 +58,8 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   }
 
   avifDecoderAllImage() {}
+
+  clearNthImageMessage() {}
 }
 
 export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
@@ -168,5 +170,13 @@ export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
       }
       this.listenOnmessage(ev);
     };
+  }
+
+  clearOnmessageAll<T extends keyof W>(channel?: T) {
+    if (channel) {
+      this.workerListeners.delete(channel);
+    } else {
+      this.workerListeners.clear();
+    }
   }
 }

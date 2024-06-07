@@ -27,6 +27,7 @@ export declare class Observer<M> {
      * @returns
      */
     clear<T extends keyof M>(channel: T, handler: (data: M[T]) => void): boolean;
+    clearAll<T extends keyof M>(channel?: T): void;
 }
 export declare class WorkerEventEmitter<M> {
     private eventListeners;

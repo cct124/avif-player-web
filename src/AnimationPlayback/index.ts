@@ -2,14 +2,13 @@ import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import { AvifPlayerWebChannel } from "../types";
-import { PlayOptions } from "../types/PlayType";
 import {
   DecoderImageData,
   DecoderChannel,
   DecoderEventMap,
 } from "../types/WorkerMessageType";
-import { deepMixins, timeout } from "../utils";
-import { PlayChannelType, PlayEventMap } from "./type";
+import { deepMixins, sleep, timeout } from "../utils";
+import { PlayChannelType, PlayEventMap, PlayOptions } from "./type";
 
 export default class AnimationPlayback<
   D extends Decoder<DecoderEventMap>,
@@ -29,11 +28,12 @@ export default class AnimationPlayback<
   renderStats: number[] = [];
   loopCount = 0;
   AvifPlayerWeb: AvifPlayerWeb;
-  framesStatus: [Promise<any>, (value?: any) => void][] = [];
   framesCancel: number[] = [];
   pauseIndex: number = 0;
   pts = 0;
   frameIndex = 0;
+  framesDelay: number[];
+  update: (diff: number) => void;
 
   render!: (
     arrayBuffer: Uint8ClampedArray,
@@ -51,7 +51,9 @@ export default class AnimationPlayback<
     this.option = deepMixins(option, {
       webgl: true,
       loop: 1,
+      async: false,
     });
+    this.update = this.option.async ? this.updateAsync : this.updateSync;
     if (this.option.loop === 0) this.option.loop = Infinity;
     this.canvas = canvas;
     this.setDecoder(decoder);
@@ -83,7 +85,10 @@ export default class AnimationPlayback<
     if (!this.playing) {
       if (this.decoder) {
         if (!isNaN(index)) this.index = index;
-        this.resetFramesStatus(this.decoder.imageCount);
+        if (this.option.async) {
+          this.resetFramesStatus(this.decoder.imageCount);
+          if (this.paused) this.index = this.frameIndex + 1;
+        }
         this.update(this.paused ? this.pts : 0);
       } else {
         throw new Error("未设置解码器对象");
@@ -92,79 +97,65 @@ export default class AnimationPlayback<
   }
 
   resetFramesStatus(imageCount: number) {
-    this.framesStatus = new Array(imageCount + 1).fill(null);
-    this.framesCancel = new Array(imageCount).fill(0);
+    this.framesDelay = new Array(imageCount).fill(0);
   }
 
   /**
    * 暂停播放
    */
   pause(index?: number) {
-    console.log("-----pause-----");
+    if (!this.playing) return;
     this.paused = true;
     if (!isNaN(index)) this.index = index;
     this.framesCancel
       .filter((handle) => handle > 0)
       .forEach((handle) => {
         window.cancelAnimationFrame(handle);
-        this.framesStatus = null;
       });
+    this.decoder.clearNthImageMessage();
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
     this.playing = false;
-    this.resetFramesStatus(this.decoder.imageCount);
-    this.index = this.frameIndex;
+    if (this.option.async) this.resetFramesStatus(this.decoder.imageCount);
   }
 
-  async update(diff = 0) {
+  async updateAsync(diff = 0) {
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+
     for (
       this.loopCount = this.loopCount;
       this.loopCount < this.option.loop!;
       this.loopCount++
     ) {
-      if (this.framesStatus[this.decoder.imageCount])
-        await this.framesStatus[this.decoder.imageCount][0];
       this.lastTimestamp = performance.now();
       let startTime = this.lastTimestamp;
-      this.framesStatus[this.index] = [Promise.resolve(), () => {}];
 
-      while (this.index < this.decoder.imageCount) {
-        if (this.paused) return;
-
-        this.framesStatus[this.index + 1] = [null, null];
-        this.framesStatus[this.index + 1][0] = new Promise((resolve) => {
-          this.framesStatus[this.index + 1][1] = resolve;
-        });
-
-        console.log("decoderNthImage", this.index);
+      while (this.index < this.decoder.imageCount && !this.paused) {
         const imageData = await this.decoder.decoderNthImage(this.index);
-        if (this.paused) return;
 
         const frameDisplayTime = startTime + imageData.pts * 1000 - diff;
         let delay = frameDisplayTime - performance.now() - imageData.decodeTime;
+        console.log(imageData.index, delay);
 
         if (delay < 0) delay = 0;
-        const [promise] = this.framesStatus[imageData.index];
-        const [, resolve] = this.framesStatus[imageData.index + 1];
 
-        this.sleep(delay, imageData.index).then(() => {
-          if (this.paused) return;
-          this.framesCancel[imageData.index] = null;
+        const prevDelay = imageData.index
+          ? this.framesDelay[imageData.index - 1]
+          : this.framesDelay[this.framesDelay.length - 1] || 0;
+        this.framesDelay[imageData.index] = performance.now() + delay;
+
+        if (prevDelay > this.framesDelay[imageData.index]) {
+          delay = prevDelay - performance.now() + 1;
+        }
+        this.sleep(delay).then(() => {
           const pixels = new Uint8ClampedArray(imageData.pixels);
-          promise.then(() => {
-            console.log("render", imageData.index);
-
-            this.render(pixels, imageData.width, imageData.height);
-            this.pts = imageData.pts * 1000;
-            this.frameIndex = imageData.index;
-            this.emit(PlayChannelType.frameIndexChange, {
-              index: this.frameIndex,
-              decodeTime: imageData.decodeTime,
-            });
-            resolve();
-            this.framesStatus[imageData.index] = null;
+          this.render(pixels, imageData.width, imageData.height);
+          this.frameIndex = imageData.index;
+          this.pts = imageData.pts * 1000;
+          this.emit(PlayChannelType.frameIndexChange, {
+            index: this.frameIndex,
+            decodeTime: imageData.decodeTime,
           });
         });
 
@@ -173,7 +164,41 @@ export default class AnimationPlayback<
       }
 
       this.index = 0;
-      startTime = performance.now();
+      // startTime = performance.now();
+    }
+    this.index = 0;
+    this.loopCount = 0;
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, true);
+    this.playing = false;
+  }
+
+  async updateSync() {
+    this.paused = false;
+    this.playing = true;
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    this.lastTimestamp = performance.now();
+    for (
+      this.loopCount = this.loopCount;
+      this.loopCount < this.option.loop!;
+      this.loopCount++
+    ) {
+      while (this.index < this.decoder.imageCount) {
+        const imageData = await this.decoder.decoderNthImage(this.index);
+        const delay = this.index
+          ? imageData.duration * 1000 - imageData.decodeTime
+          : 0;
+        if (delay > 0) {
+          await this.sleep(delay);
+        }
+        const pixels = new Uint8ClampedArray(imageData.pixels);
+        this.render(pixels, imageData.width, imageData.height);
+        this.emit(PlayChannelType.frameIndexChange, {
+          index: this.index,
+          decodeTime: imageData.decodeTime,
+        });
+        this.index++;
+      }
+      this.index = 0;
     }
     this.index = 0;
     this.loopCount = 0;
@@ -292,30 +317,33 @@ export default class AnimationPlayback<
     this.ctx2d!.putImageData(imageData, 0, 0);
   }
 
-  async sleep(delay: number, index: number) {
+  async sleep(delay: number) {
     if (delay <= 0) {
       return Promise.resolve();
     } else {
       return new Promise<number>((resolve) => {
-        this.timeout(resolve, delay, index);
+        this.timeout(resolve, delay);
       });
     }
   }
 
-  timeout(callback: (elapsed: number) => void, ms = 0, index: number) {
+  timeout(callback: (elapsed: number) => void, ms = 0) {
     let start: number;
     const step = (timestamp: number) => {
       if (start === undefined) start = timestamp;
       const elapsed = timestamp - start;
-
       if (elapsed >= ms) {
         callback(elapsed);
       } else {
-        this.framesCancel[index] = requestAnimationFrame(step);
+        this.framesCancel.push(window.requestAnimationFrame(step));
       }
     };
+    this.framesCancel.push(window.requestAnimationFrame(step));
+  }
 
-    const requestAnimationFrame = window.requestAnimationFrame;
-    this.framesCancel[index] = requestAnimationFrame(step);
+  destroy() {
+    this.pause();
+    this.index = 0;
+    this.frameIndex = 0;
   }
 }

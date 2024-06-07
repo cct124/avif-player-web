@@ -30,8 +30,8 @@ export function deepMixins<T extends { [key: string]: any }>(
       obj2[key].toString() === "[object Object]"
         ? deepMixins(obj1[key], obj2[key])
         : obj2[key] === undefined
-        ? (obj2[key as keyof T] = obj1[key])
-        : (obj1[key] = obj2[key]);
+          ? (obj2[key as keyof T] = obj1[key])
+          : (obj1[key] = obj2[key]);
   }
   return obj1 as T;
 }
@@ -53,4 +53,10 @@ export function timeout(callback: (elapsed: number) => void, ms = 0) {
     }
   }
   window.requestAnimationFrame(step);
+}
+
+export function sleep(delay: number) {
+  return new Promise<number>((resolve) => {
+    timeout(resolve, delay);
+  });
 }

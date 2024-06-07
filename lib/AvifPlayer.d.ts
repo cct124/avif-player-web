@@ -51,6 +51,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
      * @returns
      */
     hasAv1Support(): boolean;
+    setCanvasSize(): void;
     /**
      * 销毁解码器`Worker`线程
      *
