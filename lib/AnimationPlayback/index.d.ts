@@ -23,7 +23,7 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     pauseIndex: number;
     pts: number;
     frameIndex: number;
-    framesDelay: number[];
+    framesPerformanceDelay: number[];
     update: (diff: number) => void;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);

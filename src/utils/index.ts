@@ -60,3 +60,7 @@ export function sleep(delay: number) {
     timeout(resolve, delay);
   });
 }
+
+export function isNumeric(num: number) {
+  return typeof num === "number";
+}

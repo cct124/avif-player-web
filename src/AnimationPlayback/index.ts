@@ -7,7 +7,7 @@ import {
   DecoderChannel,
   DecoderEventMap,
 } from "../types/WorkerMessageType";
-import { deepMixins, sleep, timeout } from "../utils";
+import { deepMixins, isNumeric, sleep, timeout } from "../utils";
 import { PlayChannelType, PlayEventMap, PlayOptions } from "./type";
 
 export default class AnimationPlayback<
@@ -32,7 +32,7 @@ export default class AnimationPlayback<
   pauseIndex: number = 0;
   pts = 0;
   frameIndex = 0;
-  framesDelay: number[];
+  framesPerformanceDelay: number[];
   update: (diff: number) => void;
 
   render!: (
@@ -84,7 +84,7 @@ export default class AnimationPlayback<
   play(index?: number) {
     if (!this.playing) {
       if (this.decoder) {
-        if (!isNaN(index)) this.index = index;
+        if (isNumeric(index)) this.index = index;
         if (this.option.async) {
           this.resetFramesStatus(this.decoder.imageCount);
           if (this.paused) this.index = this.frameIndex + 1;
@@ -97,7 +97,7 @@ export default class AnimationPlayback<
   }
 
   resetFramesStatus(imageCount: number) {
-    this.framesDelay = new Array(imageCount).fill(0);
+    this.framesPerformanceDelay = new Array(imageCount).fill(0);
   }
 
   /**
@@ -106,7 +106,7 @@ export default class AnimationPlayback<
   pause(index?: number) {
     if (!this.playing) return;
     this.paused = true;
-    if (!isNaN(index)) this.index = index;
+    if (isNumeric(index)) this.index = index;
     this.framesCancel
       .filter((handle) => handle > 0)
       .forEach((handle) => {
@@ -128,26 +128,33 @@ export default class AnimationPlayback<
       this.loopCount < this.option.loop!;
       this.loopCount++
     ) {
-      this.lastTimestamp = performance.now();
-      let startTime = this.lastTimestamp;
+      let startTime = (this.lastTimestamp = performance.now());
 
       while (this.index < this.decoder.imageCount && !this.paused) {
         const imageData = await this.decoder.decoderNthImage(this.index);
+        const now = performance.now();
+
+        startTime = this.framesPerformanceDelay[
+          this.framesPerformanceDelay.length - 1
+        ]
+          ? this.framesPerformanceDelay[this.framesPerformanceDelay.length - 1]
+          : startTime;
 
         const frameDisplayTime = startTime + imageData.pts * 1000 - diff;
-        let delay = frameDisplayTime - performance.now() - imageData.decodeTime;
-        console.log(imageData.index, delay);
-
-        if (delay < 0) delay = 0;
+        let delay = frameDisplayTime - now - imageData.decodeTime;
 
         const prevDelay = imageData.index
-          ? this.framesDelay[imageData.index - 1]
-          : this.framesDelay[this.framesDelay.length - 1] || 0;
-        this.framesDelay[imageData.index] = performance.now() + delay;
+          ? this.framesPerformanceDelay[imageData.index - 1]
+          : this.framesPerformanceDelay[
+              this.framesPerformanceDelay.length - 1
+            ] || 0;
+        this.framesPerformanceDelay[imageData.index] = now + delay;
 
-        if (prevDelay > this.framesDelay[imageData.index]) {
-          delay = prevDelay - performance.now() + 1;
+        if (prevDelay > this.framesPerformanceDelay[imageData.index]) {
+          delay = prevDelay - now;
+          this.framesPerformanceDelay[imageData.index] = now + delay;
         }
+
         this.sleep(delay).then(() => {
           const pixels = new Uint8ClampedArray(imageData.pixels);
           this.render(pixels, imageData.width, imageData.height);
@@ -164,7 +171,6 @@ export default class AnimationPlayback<
       }
 
       this.index = 0;
-      // startTime = performance.now();
     }
     this.index = 0;
     this.loopCount = 0;

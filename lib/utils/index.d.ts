@@ -29,3 +29,4 @@ export declare function deepMixins<T extends {
  */
 export declare function timeout(callback: (elapsed: number) => void, ms?: number): void;
 export declare function sleep(delay: number): Promise<number>;
+export declare function isNumeric(num: number): boolean;
