@@ -54,4 +54,5 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     sleep(delay: number): Promise<number>;
     timeout(callback: (time: number) => void, ms?: number): void;
     destroy(): void;
+    requestAnimationFrame(callback: FrameRequestCallback): void;
 }

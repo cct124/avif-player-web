@@ -100,7 +100,7 @@ export interface AvifDecoderNextImageData {
   /**
    * 帧索引
    */
-  index: number;
+  frameIndex: number;
   /**
    * 图像宽度
    */

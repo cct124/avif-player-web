@@ -1,5 +1,5 @@
 import MD5 from "crypto-js/md5";
-import WebpackWorker from "./Worker/main.worker";
+import WebpackWorker from "./Worker/Libavif.worker";
 // import DecoderManager from "./DecoderManager/index";
 import { AvifPlayerWebOptions } from "./types/AvifPlayerWebType";
 import { deepMixins } from "./utils";

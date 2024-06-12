@@ -71,8 +71,6 @@ export class LibavifDecoder extends MainEventEmitter<
         this.onmessageOnce(
           WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
           (data, arrayBuffer) => {
-            console.log(`frameIndex: ${frameIndex}`);
-
             const decoderImageData: DecoderImageData = {
               ...data,
               pixels: arrayBuffer!,
@@ -128,7 +126,7 @@ export class LibavifDecoder extends MainEventEmitter<
     this.onmessageOnce(
       WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
       (data) => {
-        console.log(data.index);
+        console.log(data.frameIndex);
       }
     );
   }

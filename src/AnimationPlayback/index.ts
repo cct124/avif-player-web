@@ -156,28 +156,26 @@ export default class AnimationPlayback<
         let delay = frameDisplayTime - now;
         if (delay < 0) delay = 0;
 
-        const prevDelay = imageData.index
-          ? this.framesPerformanceDelay[imageData.index - 1]
+        const prevDelay = imageData.frameIndex
+          ? this.framesPerformanceDelay[imageData.frameIndex - 1]
           : this.framesPerformanceDelay[
               this.framesPerformanceDelay.length - 1
             ] || 0;
-        this.framesPerformanceDelay[imageData.index] = now + delay;
+        this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
 
-        if (prevDelay > this.framesPerformanceDelay[imageData.index]) {
+        if (prevDelay > this.framesPerformanceDelay[imageData.frameIndex]) {
           delay = prevDelay - now + 1;
-          this.framesPerformanceDelay[imageData.index] = now + delay;
+          this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
         }
 
-        this.sleep(50).then(() => {
+        this.sleep(delay).then(() => {
           this.arrayBuffStackSize--;
           const pixels = new Uint8ClampedArray(imageData.pixels);
           this.render(pixels, imageData.width, imageData.height);
-          console.log(`render: ${imageData.index}`);
-
-          this.frameIndex = imageData.index;
+          this.frameIndex = imageData.frameIndex;
           this.pts = imageData.pts * 1000;
           this.emit(PlayChannelType.frameIndexChange, {
-            index: imageData.index,
+            index: imageData.frameIndex,
             decodeTime: imageData.decodeTime,
           });
         });
@@ -242,10 +240,10 @@ export default class AnimationPlayback<
         if (this.arrayBuffStackSize <= this.arrayBuffLength) {
           resolve(true);
         } else {
-          this.framesCancel.push(window.requestAnimationFrame(update));
+          this.requestAnimationFrame(update);
         }
       };
-      this.framesCancel.push(window.requestAnimationFrame(update));
+      this.requestAnimationFrame(update);
     });
   }
 
@@ -374,15 +372,19 @@ export default class AnimationPlayback<
       if (elapsed >= ms) {
         callback(elapsed);
       } else {
-        this.framesCancel.push(window.requestAnimationFrame(step));
+        this.requestAnimationFrame(step);
       }
     };
-    this.framesCancel.push(window.requestAnimationFrame(step));
+    this.requestAnimationFrame(step);
   }
 
   destroy() {
     this.pause();
     this.index = 0;
     this.frameIndex = 0;
+  }
+
+  requestAnimationFrame(callback: FrameRequestCallback) {
+    this.framesCancel.push(window.requestAnimationFrame(callback));
   }
 }
