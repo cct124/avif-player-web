@@ -71,10 +71,13 @@ export class LibavifDecoder extends MainEventEmitter<
         this.onmessageOnce(
           WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
           (data, arrayBuffer) => {
+            console.log(`frameIndex: ${frameIndex}`);
+
             const decoderImageData: DecoderImageData = {
               ...data,
               pixels: arrayBuffer!,
             };
+            this.emit(DecoderChannel.nextImage, decoderImageData);
             resolve(decoderImageData);
           }
         );

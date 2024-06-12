@@ -215,7 +215,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       ) {
         this.decodeStats.push(performance.now() - t1);
         const total = this.decodeStats.reduce((a, b) => a + b, 0);
-        console.log(total / this.decodeStats.length);
         const t2 = performance.now();
         const decodeTime = t2 - t1;
         t1 = t2;

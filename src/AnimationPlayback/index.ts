@@ -34,6 +34,14 @@ export default class AnimationPlayback<
   frameIndex = 0;
   framesPerformanceDelay: number[];
   update: (diff: number) => void;
+  /**
+   * 当前调用栈缓冲大小
+   */
+  arrayBuffStackSize = 0;
+  /**
+   * 缓冲区数组长度，这个值是根据 `option.arrayBuffSize`配置的缓冲区大小计算的，不小于1
+   */
+  arrayBuffLength = 1;
 
   render!: (
     arrayBuffer: Uint8ClampedArray,
@@ -52,6 +60,7 @@ export default class AnimationPlayback<
       webgl: true,
       loop: 1,
       async: false,
+      arrayBuffSize: 67108864,
     });
     this.update = this.option.async ? this.updateAsync : this.updateSync;
     if (this.option.loop === 0) this.option.loop = Infinity;
@@ -64,6 +73,12 @@ export default class AnimationPlayback<
 
   setDecoder(decoder: D) {
     this.decoder = decoder;
+    if (this.option.async) {
+      this.decoder.once(DecoderChannel.nextImage, (data) => {
+        this.arrayBuffLength =
+          Math.floor(this.option.arrayBuffSize / data.pixels.byteLength) || 1;
+      });
+    }
   }
 
   initRender() {
@@ -107,31 +122,28 @@ export default class AnimationPlayback<
     if (!this.playing) return;
     this.paused = true;
     if (isNumeric(index)) this.index = index;
-    this.framesCancel
-      .filter((handle) => handle > 0)
-      .forEach((handle) => {
-        window.cancelAnimationFrame(handle);
-      });
+    this.framesCancel.forEach((handle) => {
+      window.cancelAnimationFrame(handle);
+    });
     this.decoder.clearNthImageMessage();
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
     this.playing = false;
-    if (this.option.async) this.resetFramesStatus(this.decoder.imageCount);
+    if (this.option.async) {
+      this.resetFramesStatus(this.decoder.imageCount);
+      this.arrayBuffStackSize = 0;
+      console.log(this.arrayBuffStackSize);
+    }
   }
 
   async updateAsync(diff = 0) {
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    let startTime = (this.lastTimestamp = performance.now() - diff);
 
-    for (
-      this.loopCount = this.loopCount;
-      this.loopCount < this.option.loop!;
-      this.loopCount++
-    ) {
-      let startTime = (this.lastTimestamp = performance.now());
-
+    for (; this.loopCount < this.option.loop!; this.loopCount++) {
       while (this.index < this.decoder.imageCount && !this.paused) {
-        const imageData = await this.decoder.decoderNthImage(this.index);
+        const imageData = await this.decoderNthImageArrayBuff(this.index);
         const now = performance.now();
 
         startTime = this.framesPerformanceDelay[
@@ -140,8 +152,9 @@ export default class AnimationPlayback<
           ? this.framesPerformanceDelay[this.framesPerformanceDelay.length - 1]
           : startTime;
 
-        const frameDisplayTime = startTime + imageData.pts * 1000 - diff;
-        let delay = frameDisplayTime - now - imageData.decodeTime;
+        const frameDisplayTime = startTime + imageData.pts * 1000;
+        let delay = frameDisplayTime - now;
+        if (delay < 0) delay = 0;
 
         const prevDelay = imageData.index
           ? this.framesPerformanceDelay[imageData.index - 1]
@@ -151,17 +164,20 @@ export default class AnimationPlayback<
         this.framesPerformanceDelay[imageData.index] = now + delay;
 
         if (prevDelay > this.framesPerformanceDelay[imageData.index]) {
-          delay = prevDelay - now;
+          delay = prevDelay - now + 1;
           this.framesPerformanceDelay[imageData.index] = now + delay;
         }
 
-        this.sleep(delay).then(() => {
+        this.sleep(50).then(() => {
+          this.arrayBuffStackSize--;
           const pixels = new Uint8ClampedArray(imageData.pixels);
           this.render(pixels, imageData.width, imageData.height);
+          console.log(`render: ${imageData.index}`);
+
           this.frameIndex = imageData.index;
           this.pts = imageData.pts * 1000;
           this.emit(PlayChannelType.frameIndexChange, {
-            index: this.frameIndex,
+            index: imageData.index,
             decodeTime: imageData.decodeTime,
           });
         });
@@ -183,11 +199,7 @@ export default class AnimationPlayback<
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
     this.lastTimestamp = performance.now();
-    for (
-      this.loopCount = this.loopCount;
-      this.loopCount < this.option.loop!;
-      this.loopCount++
-    ) {
+    for (; this.loopCount < this.option.loop!; this.loopCount++) {
       while (this.index < this.decoder.imageCount) {
         const imageData = await this.decoder.decoderNthImage(this.index);
         const delay = this.index
@@ -212,6 +224,31 @@ export default class AnimationPlayback<
     this.playing = false;
   }
 
+  async decoderNthImageArrayBuff(index: number) {
+    if (this.arrayBuffStackSize <= this.arrayBuffLength) {
+      const imageData = await this.decoder.decoderNthImage(index);
+      this.arrayBuffStackSize++;
+      return imageData;
+    }
+    await this.updateArrayBuff();
+    const imageData = await this.decoder.decoderNthImage(index);
+    this.arrayBuffStackSize++;
+    return imageData;
+  }
+
+  async updateArrayBuff() {
+    return new Promise<boolean>((resolve, reject) => {
+      const update = () => {
+        if (this.arrayBuffStackSize <= this.arrayBuffLength) {
+          resolve(true);
+        } else {
+          this.framesCancel.push(window.requestAnimationFrame(update));
+        }
+      };
+      this.framesCancel.push(window.requestAnimationFrame(update));
+    });
+  }
+
   awaitNextFrameDecode(decoder: D) {
     return new Promise((resolve, reject) => {
       decoder.once(DecoderChannel.nextImage, () => resolve(true));
@@ -231,63 +268,59 @@ export default class AnimationPlayback<
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     // 顶点着色器
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    if (vertexShader) {
-      gl.shaderSource(
-        vertexShader,
-        `
-          attribute vec4 position;
-          varying vec2 vUV;
-          void main() {
-            vUV = position.xy * 0.5 + 0.5;
-            // 修改此处，翻转Y坐标
-            gl_Position = vec4(position.x, -position.y, position.z, position.w);
-          }
-        `
-      );
-      gl.compileShader(vertexShader);
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER)!;
 
-      // 片元着色器
-      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-      if (fragmentShader) {
-        gl.shaderSource(
-          fragmentShader,
-          `
-            precision mediump float;
-            varying vec2 vUV;
-            uniform sampler2D texture;
-            void main() {
-              vec4 texColor = texture2D(texture, vUV);
-              gl_FragColor = texture2D(texture, vUV);
-            }
-          `
-        );
-        gl.compileShader(fragmentShader);
-
-        // 创建着色器程序
-        const program = gl.createProgram();
-        if (program) {
-          gl.attachShader(program, vertexShader);
-          gl.attachShader(program, fragmentShader);
-          gl.linkProgram(program);
-          gl.useProgram(program);
-
-          // 创建缓冲区
-          const vertexBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-          gl.bufferData(
-            gl.ARRAY_BUFFER,
-            new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0]),
-            gl.STATIC_DRAW
-          );
-
-          // 链接顶点属性
-          const positionLocation = gl.getAttribLocation(program, "position");
-          gl.enableVertexAttribArray(positionLocation);
-          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.shaderSource(
+      vertexShader,
+      `
+        attribute vec4 position;
+        varying vec2 vUV;
+        void main() {
+          vUV = position.xy * 0.5 + 0.5;
+          // 修改此处，翻转Y坐标
+          gl_Position = vec4(position.x, -position.y, position.z, position.w);
         }
-      }
-    }
+      `
+    );
+    gl.compileShader(vertexShader);
+
+    // 片元着色器
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!;
+
+    gl.shaderSource(
+      fragmentShader,
+      `
+        precision mediump float;
+        varying vec2 vUV;
+        uniform sampler2D texture;
+        void main() {
+          vec4 texColor = texture2D(texture, vUV);
+          gl_FragColor = texture2D(texture, vUV);
+        }
+      `
+    );
+    gl.compileShader(fragmentShader);
+
+    // 创建着色器程序
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    // 创建缓冲区
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0]),
+      gl.STATIC_DRAW
+    );
+
+    // 链接顶点属性
+    const positionLocation = gl.getAttribLocation(program, "position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
   }
 
   renderWebgl(
@@ -325,7 +358,7 @@ export default class AnimationPlayback<
 
   async sleep(delay: number) {
     if (delay <= 0) {
-      return Promise.resolve();
+      return Promise.resolve(0);
     } else {
       return new Promise<number>((resolve) => {
         this.timeout(resolve, delay);
@@ -333,7 +366,7 @@ export default class AnimationPlayback<
     }
   }
 
-  timeout(callback: (elapsed: number) => void, ms = 0) {
+  timeout(callback: (time: number) => void, ms = 0) {
     let start: number;
     const step = (timestamp: number) => {
       if (start === undefined) start = timestamp;

@@ -107,6 +107,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
               webgl: this.option.webgl,
               loop: this.option.loop,
               async: this.option.async,
+              arrayBuffSize: this.option.arrayBuffSize,
             }
           );
         }
