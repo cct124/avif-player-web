@@ -1,10 +1,12 @@
 # avif-player-web
 
-> 使用 webassembly 播放 AVIF 动画文件
+> 使用[Webassembly][Webassembly]播放[AVIF][AVIF]动画文件。单帧的图像也是支持的，但是因为解码时间过长，所以意义不大。这个库使用了[Emscripten][Emscripten]编译[Libavif](https://github.com/AOMediaCodec/libavif)为[Webassembly][Webassembly]从而提供向后兼容的AVIF文件的支持
+
+> 只支持`8bit`色深文件，每个AvifPlayerWeb对象创建播放时都会新建一个[Worker][Worker]线程
 
 [![npm version](https://badge.fury.io/js/avif-player-web.svg)](https://www.npmjs.com/package/avif-player-web)
 
-## Installation
+## 安装
 
 ```shell
 # npm
@@ -14,7 +16,9 @@ npm i avif-player-web
 yarn add avif-player-web
 ```
 
-## Example
+## 示例
+
+### 播放一个动画文件
 
 ```html
 <canvas id="canvas"></canvas>
@@ -23,10 +27,11 @@ yarn add avif-player-web
 ```typescript
 import AvifPlayerWeb from "avif-player-web";
 
+// 每个AvifPlayerWeb对象创建播放时都会新建一个Worker线程
 // 第二个参数可以是配置对象
 const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
   // 你的avif文件链接
-  "www.example.com/test.avif",
+  "www.example.com/animation.avif",
   // 传入canvas DOM对象或id
   document.getElementById("canvas"),
   {
@@ -45,7 +50,27 @@ AvifPlayerWeb.on(
 );
 ```
 
-## Option
+### 显示单帧的图像文件
+
+```typescript
+import AvifPlayerWeb from "avif-player-web";
+
+const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
+  "www.example.com/one.avif",
+  document.getElementById("canvas"),
+  {
+    // 这样才能一开始就显示图像
+    autoplay: true,
+  }
+);
+
+avifPlayerWeb.on(AvifPlayerWeb.AvifPlayerWebChannel.end, (data) => {
+  // 播放完成后销毁Worker线程以节省内存
+  avifPlayerWeb.destroy();
+});
+```
+
+## 配置
 
 `AvifPlayerWeb`对象的所有可选配置
 
@@ -88,3 +113,14 @@ export interface AvifPlayerWebOptions {
   initDecoderAvifInstantly?: boolean;
 }
 ```
+
+## 如何实现
+
+解码的流程
+
+![alt text](doc/Libavif.png)
+
+[Emscripten]: (https://emscripten.org/)
+[Webassembly]: (https://webassembly.org)
+[AVIF]: (https://en.wikipedia.org/wiki/AVIF)
+[Worker]: (https://developer.mozilla.org/zh-CN/docs/Web/API/Web_Workers_API/Using_web_workers#web_workers_api)
