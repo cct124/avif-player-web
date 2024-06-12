@@ -65,6 +65,14 @@ export class Observer<M> {
     }
     return false;
   }
+
+  clearAll<T extends keyof M>(channel?: T) {
+    if (channel) {
+      this.eventListeners.delete(channel);
+    } else {
+      this.eventListeners.clear();
+    }
+  }
 }
 
 export class WorkerEventEmitter<M> {

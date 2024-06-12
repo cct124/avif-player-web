@@ -4,11 +4,12 @@ import {
 } from "../types/WorkerMessageType";
 import { WorkerEventEmitter } from "../Observer/index";
 import { AVIF_RESULT, AvifImageCache, AvifImageTiming } from "./type";
+import LibavifWorker from "./Libavif.worker";
 
 const AVIF_RGB_IMAGE_STRUCT_SIZE = 64;
 const AVIF_RGB_IMAGE_TIMING_STRUCT_SIZE = 40;
 
-export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMap> {
+export default class Libavif {
   AwsmAvifDecode: any;
   decoderPtr?: number;
   bufferPtr?: number;
@@ -17,36 +18,14 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   avifImageCachePtr?: number;
   index = 0;
   imageCount = 0;
-  timingCache = new Map<string, AvifImageTiming[]>();
   decoderNthImage!: (id: string, frameIndex: number) => void;
   rbgPtr?: number;
   decodeStats: number[] = [];
+  libavifWorker: LibavifWorker;
 
-  constructor(awsmAvifDecode: any) {
-    super();
+  constructor(libavifWorker: LibavifWorker, awsmAvifDecode: any) {
+    this.libavifWorker = libavifWorker;
     this.AwsmAvifDecode = awsmAvifDecode;
-
-    this.on(
-      WorkerAvifDecoderMessageChannel.avifDecoderParse,
-      ({ id }, arrayBuffer) => {
-        if (id && arrayBuffer?.byteLength) {
-          if (!this.decoderPtr) this.avifDecoderParse(arrayBuffer);
-          this.decoderNthImage = this.avifDecoderNthImage;
-        } else {
-          throw new Error(`参数错误 id: ${id} arrayBuffer: ${arrayBuffer}`);
-        }
-      }
-    );
-    this.on(WorkerAvifDecoderMessageChannel.avifDecoderImage, ({ id }) => {
-      this.avifDecoderImage(id);
-    });
-    this.on(
-      WorkerAvifDecoderMessageChannel.avifDecoderNthImage,
-      ({ id, frameIndex }) => {
-        this.decoderNthImage(id, frameIndex);
-      }
-    );
-    this.send(WorkerAvifDecoderMessageChannel.initial, this.avifVersion());
   }
 
   avifDecoderParse(arrayBuffer: ArrayBuffer) {
@@ -99,12 +78,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       }
 
       this.rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
-
-      this.send(WorkerAvifDecoderMessageChannel.avifDecoderParseComplete, {
-        imageCount: this.imageCount,
-        width: this.width!,
-        height: this.height!,
-      });
     } catch (error) {
       this.error(new Error(`${error}`));
       if (this.bufferPtr) this.free(this.bufferPtr);
@@ -129,14 +102,53 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         frameIndex
       );
       const timing = this.getImageTiming(timingPtr);
-      this.avifDecoderNthImageResult(
-        id,
-        imagePtr,
-        timing,
-        frameIndex,
-        t1,
-        this.rbgPtr!
+
+      this.AwsmAvifDecode._avifRGBImageSetDefaults(this.rbgPtr, imagePtr);
+      let result = this.AwsmAvifDecode._avifRGBImageAllocatePixels(this.rbgPtr);
+
+      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+        this.error(
+          new Error(
+            `Allocation of RGB samples failed:  ${this.resultToStr(result)}`
+          )
+        );
+        this.free(this.rbgPtr);
+      }
+
+      result = this.AwsmAvifDecode._avifImageYUVToRGB(imagePtr, this.rbgPtr);
+      if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
+        this.error(
+          new Error(`Conversion from YUV failed:  ${this.resultToStr(result)}`)
+        );
+      }
+      const pixelsPtr = this.AwsmAvifDecode._avifGetRGBImagePixels(this.rbgPtr);
+      const width = this.AwsmAvifDecode._avifGetRGBImageWidth(this.rbgPtr);
+      const height = this.AwsmAvifDecode._avifGetRGBImageHeight(this.rbgPtr);
+      const depth = this.AwsmAvifDecode._avifGetRGBImageDepth(this.rbgPtr);
+      const _pixels = new Uint8ClampedArray(
+        this.AwsmAvifDecode.HEAPU8.buffer,
+        pixelsPtr,
+        width * height * 4
       );
+      const pixels = _pixels.slice();
+      this.libavifWorker.send(
+        WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
+        {
+          id,
+          timescale: timing.timescale,
+          pts: timing.pts,
+          ptsInTimescales: timing.ptsInTimescales,
+          duration: timing.duration,
+          durationInTimescales: timing.durationInTimescales,
+          frameIndex,
+          width,
+          height,
+          depth,
+          decodeTime: performance.now() - t1,
+        },
+        pixels.buffer
+      );
+
       this.AwsmAvifDecode._avifRGBImageFreePixels(this.rbgPtr);
       // this.free(this.rbgPtr!);
       this.free(timingPtr);
@@ -144,69 +156,17 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
     }
 
     if (frameIndex === this.imageCount) {
-      this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
-    }
-  }
-
-  avifDecoderNthImageResult(
-    id: string,
-    imagePtr: number,
-    timing: AvifImageTiming,
-    index: number,
-    t1: number,
-    rbgPtr: number
-  ) {
-    this.AwsmAvifDecode._avifRGBImageSetDefaults(rbgPtr, imagePtr);
-    let result = this.AwsmAvifDecode._avifRGBImageAllocatePixels(rbgPtr);
-
-    if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-      this.error(
-        new Error(
-          `Allocation of RGB samples failed:  ${this.resultToStr(result)}`
-        )
-      );
-      this.free(rbgPtr);
-    }
-
-    result = this.AwsmAvifDecode._avifImageYUVToRGB(imagePtr, rbgPtr);
-    if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
-      this.error(
-        new Error(`Conversion from YUV failed:  ${this.resultToStr(result)}`)
+      this.libavifWorker.send(
+        WorkerAvifDecoderMessageChannel.decodingComplete,
+        {}
       );
     }
-    const pixelsPtr = this.AwsmAvifDecode._avifGetRGBImagePixels(rbgPtr);
-    const width = this.AwsmAvifDecode._avifGetRGBImageWidth(rbgPtr);
-    const height = this.AwsmAvifDecode._avifGetRGBImageHeight(rbgPtr);
-    const depth = this.AwsmAvifDecode._avifGetRGBImageDepth(rbgPtr);
-    const _pixels = new Uint8ClampedArray(
-      this.AwsmAvifDecode.HEAPU8.buffer,
-      pixelsPtr,
-      width * height * 4
-    );
-    const pixels = _pixels.slice();
-    this.send(
-      WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
-      {
-        id,
-        timescale: timing.timescale,
-        pts: timing.pts,
-        ptsInTimescales: timing.ptsInTimescales,
-        duration: timing.duration,
-        durationInTimescales: timing.durationInTimescales,
-        index,
-        width,
-        height,
-        depth,
-        decodeTime: performance.now() - t1,
-      },
-      pixels.buffer
-    );
   }
 
   avifDecoderImage(id: string) {
     try {
       let result = 0;
-      let index = 0;
+      let frameIndex = 0;
       let t1 = performance.now();
       while (
         (result = this.AwsmAvifDecode._avifDecoderNextImage(
@@ -215,7 +175,6 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
       ) {
         this.decodeStats.push(performance.now() - t1);
         const total = this.decodeStats.reduce((a, b) => a + b, 0);
-        console.log(total / this.decodeStats.length);
         const t2 = performance.now();
         const decodeTime = t2 - t1;
         t1 = t2;
@@ -229,7 +188,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
 
         const timingPtr = this.AwsmAvifDecode._avifGetImageTiming(
           this.decoderPtr,
-          index
+          frameIndex
         );
         const timing = this.getImageTiming(timingPtr);
         if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
@@ -260,7 +219,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
         );
         const pixels = _pixels.slice();
 
-        this.send(
+        this.libavifWorker.send(
           WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
           {
             id,
@@ -269,7 +228,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
             ptsInTimescales: timing.ptsInTimescales,
             duration: timing.duration,
             durationInTimescales: timing.durationInTimescales,
-            index,
+            frameIndex,
             width,
             height,
             depth,
@@ -278,13 +237,16 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
           pixels.buffer
         );
 
-        index++;
+        frameIndex++;
         this.AwsmAvifDecode._avifRGBImageFreePixels(rbgPtr);
         this.free(timingPtr);
       }
 
       if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING) {
-        this.send(WorkerAvifDecoderMessageChannel.decodingComplete, {});
+        this.libavifWorker.send(
+          WorkerAvifDecoderMessageChannel.decodingComplete,
+          {}
+        );
       }
     } catch (error) {
       console.log(error);
@@ -328,7 +290,7 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   }
 
   error(error: Error) {
-    this.send(WorkerAvifDecoderMessageChannel.error, error);
+    this.libavifWorker.send(WorkerAvifDecoderMessageChannel.error, error);
   }
 
   free(ptr: number) {
@@ -349,6 +311,9 @@ export default class Libavif extends WorkerEventEmitter<WorkerAvifDecoderEventMa
   }
 
   print(data: any) {
-    this.send(WorkerAvifDecoderMessageChannel.avifDecoderConsole, data);
+    this.libavifWorker.send(
+      WorkerAvifDecoderMessageChannel.avifDecoderConsole,
+      data
+    );
   }
 }

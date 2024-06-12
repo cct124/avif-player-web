@@ -2,14 +2,13 @@ import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
 import { AvifPlayerWebChannel } from "../types";
-import { PlayOptions } from "../types/PlayType";
 import {
   DecoderImageData,
   DecoderChannel,
   DecoderEventMap,
 } from "../types/WorkerMessageType";
-import { deepMixins, timeout } from "../utils";
-import { PlayChannelType, PlayEventMap } from "./type";
+import { deepMixins, isNumeric, sleep, timeout } from "../utils";
+import { PlayChannelType, PlayEventMap, PlayOptions } from "./type";
 
 export default class AnimationPlayback<
   D extends Decoder<DecoderEventMap>,
@@ -29,6 +28,21 @@ export default class AnimationPlayback<
   renderStats: number[] = [];
   loopCount = 0;
   AvifPlayerWeb: AvifPlayerWeb;
+  framesCancel: number[] = [];
+  pauseIndex: number = 0;
+  pts = 0;
+  frameIndex = 0;
+  framesPerformanceDelay: number[];
+  update: (diff: number) => void;
+  /**
+   * 当前调用栈缓冲大小
+   */
+  arrayBuffStackSize = 0;
+  /**
+   * 缓冲区数组长度，这个值是根据 `option.arrayBuffSize`配置的缓冲区大小计算的，不小于1
+   */
+  arrayBuffLength = 1;
+
   render!: (
     arrayBuffer: Uint8ClampedArray,
     width: number,
@@ -45,10 +59,13 @@ export default class AnimationPlayback<
     this.option = deepMixins(option, {
       webgl: true,
       loop: 1,
+      async: false,
+      arrayBuffSize: 67108864,
     });
+    this.update = this.option.async ? this.updateAsync : this.updateSync;
     if (this.option.loop === 0) this.option.loop = Infinity;
     this.canvas = canvas;
-    this.decoder = decoder;
+    this.setDecoder(decoder);
     this.on(PlayChannelType.frameIndexChange, (data) => {
       this.AvifPlayerWeb.emit(AvifPlayerWebChannel.frameIndexChange, data);
     });
@@ -56,6 +73,12 @@ export default class AnimationPlayback<
 
   setDecoder(decoder: D) {
     this.decoder = decoder;
+    if (this.option.async) {
+      this.decoder.once(DecoderChannel.nextImage, (data) => {
+        this.arrayBuffLength =
+          Math.floor(this.option.arrayBuffSize / data.pixels.byteLength) || 1;
+      });
+    }
   }
 
   initRender() {
@@ -76,43 +99,107 @@ export default class AnimationPlayback<
   play(index?: number) {
     if (!this.playing) {
       if (this.decoder) {
-        if (!isNaN(index)) this.index = index;
-        this.update(this.decoder);
+        if (isNumeric(index)) this.index = index;
+        if (this.option.async) {
+          this.resetFramesStatus(this.decoder.imageCount);
+          if (this.paused) this.index = this.frameIndex + 1;
+        }
+        this.update(this.paused ? this.pts : 0);
       } else {
         throw new Error("未设置解码器对象");
       }
     }
   }
 
+  resetFramesStatus(imageCount: number) {
+    this.framesPerformanceDelay = new Array(imageCount).fill(0);
+  }
+
   /**
    * 暂停播放
    */
   pause(index?: number) {
-    if (this.playing) {
-      this.paused = true;
-      if (!isNaN(index)) this.index = index;
+    if (!this.playing) return;
+    this.paused = true;
+    if (isNumeric(index)) this.index = index;
+    this.framesCancel.forEach((handle) => {
+      window.cancelAnimationFrame(handle);
+    });
+    this.decoder.clearNthImageMessage();
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
+    this.playing = false;
+    if (this.option.async) {
+      this.resetFramesStatus(this.decoder.imageCount);
+      this.arrayBuffStackSize = 0;
+      console.log(this.arrayBuffStackSize);
     }
   }
 
-  async update(decoder: D) {
+  async updateAsync(diff = 0) {
+    this.paused = false;
+    this.playing = true;
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    let startTime = (this.lastTimestamp = performance.now() - diff);
+
+    for (; this.loopCount < this.option.loop!; this.loopCount++) {
+      while (this.index < this.decoder.imageCount && !this.paused) {
+        const imageData = await this.decoderNthImageArrayBuff(this.index);
+        const now = performance.now();
+
+        startTime = this.framesPerformanceDelay[
+          this.framesPerformanceDelay.length - 1
+        ]
+          ? this.framesPerformanceDelay[this.framesPerformanceDelay.length - 1]
+          : startTime;
+
+        const frameDisplayTime = startTime + imageData.pts * 1000;
+        let delay = frameDisplayTime - now;
+        if (delay < 0) delay = 0;
+
+        const prevDelay = imageData.frameIndex
+          ? this.framesPerformanceDelay[imageData.frameIndex - 1]
+          : this.framesPerformanceDelay[
+              this.framesPerformanceDelay.length - 1
+            ] || 0;
+        this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
+
+        if (prevDelay > this.framesPerformanceDelay[imageData.frameIndex]) {
+          delay = prevDelay - now + 1;
+          this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
+        }
+
+        this.sleep(delay).then(() => {
+          this.arrayBuffStackSize--;
+          const pixels = new Uint8ClampedArray(imageData.pixels);
+          this.render(pixels, imageData.width, imageData.height);
+          this.frameIndex = imageData.frameIndex;
+          this.pts = imageData.pts * 1000;
+          this.emit(PlayChannelType.frameIndexChange, {
+            index: imageData.frameIndex,
+            decodeTime: imageData.decodeTime,
+          });
+        });
+
+        this.lastTimestamp = performance.now();
+        this.index++;
+      }
+
+      this.index = 0;
+    }
+    this.index = 0;
+    this.loopCount = 0;
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, true);
+    this.playing = false;
+  }
+
+  async updateSync() {
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
     this.lastTimestamp = performance.now();
-    for (
-      this.loopCount = this.loopCount;
-      this.loopCount < this.option.loop!;
-      this.loopCount++
-    ) {
-      while (this.index < decoder.imageCount) {
-        if (this.paused) {
-          this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
-          this.playing = false;
-          return;
-        }
-        // const t2 = performance.now();
-        const imageData = await decoder.decoderNthImage(this.index);
-        // const decodeTime = t2 - this.lastTimestamp;
+    for (; this.loopCount < this.option.loop!; this.loopCount++) {
+      while (this.index < this.decoder.imageCount) {
+        const imageData = await this.decoder.decoderNthImage(this.index);
         const delay = this.index
           ? imageData.duration * 1000 - imageData.decodeTime
           : 0;
@@ -125,16 +212,39 @@ export default class AnimationPlayback<
           index: this.index,
           decodeTime: imageData.decodeTime,
         });
-        // this.lastTimestamp = performance.now();
         this.index++;
       }
-
       this.index = 0;
     }
     this.index = 0;
     this.loopCount = 0;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, true);
     this.playing = false;
+  }
+
+  async decoderNthImageArrayBuff(index: number) {
+    if (this.arrayBuffStackSize <= this.arrayBuffLength) {
+      const imageData = await this.decoder.decoderNthImage(index);
+      this.arrayBuffStackSize++;
+      return imageData;
+    }
+    await this.updateArrayBuff();
+    const imageData = await this.decoder.decoderNthImage(index);
+    this.arrayBuffStackSize++;
+    return imageData;
+  }
+
+  async updateArrayBuff() {
+    return new Promise<boolean>((resolve, reject) => {
+      const update = () => {
+        if (this.arrayBuffStackSize <= this.arrayBuffLength) {
+          resolve(true);
+        } else {
+          this.requestAnimationFrame(update);
+        }
+      };
+      this.requestAnimationFrame(update);
+    });
   }
 
   awaitNextFrameDecode(decoder: D) {
@@ -156,63 +266,59 @@ export default class AnimationPlayback<
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     // 顶点着色器
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    if (vertexShader) {
-      gl.shaderSource(
-        vertexShader,
-        `
-          attribute vec4 position;
-          varying vec2 vUV;
-          void main() {
-            vUV = position.xy * 0.5 + 0.5;
-            // 修改此处，翻转Y坐标
-            gl_Position = vec4(position.x, -position.y, position.z, position.w);
-          }
-        `
-      );
-      gl.compileShader(vertexShader);
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER)!;
 
-      // 片元着色器
-      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-      if (fragmentShader) {
-        gl.shaderSource(
-          fragmentShader,
-          `
-            precision mediump float;
-            varying vec2 vUV;
-            uniform sampler2D texture;
-            void main() {
-              vec4 texColor = texture2D(texture, vUV);
-              gl_FragColor = texture2D(texture, vUV);
-            }
-          `
-        );
-        gl.compileShader(fragmentShader);
-
-        // 创建着色器程序
-        const program = gl.createProgram();
-        if (program) {
-          gl.attachShader(program, vertexShader);
-          gl.attachShader(program, fragmentShader);
-          gl.linkProgram(program);
-          gl.useProgram(program);
-
-          // 创建缓冲区
-          const vertexBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-          gl.bufferData(
-            gl.ARRAY_BUFFER,
-            new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0]),
-            gl.STATIC_DRAW
-          );
-
-          // 链接顶点属性
-          const positionLocation = gl.getAttribLocation(program, "position");
-          gl.enableVertexAttribArray(positionLocation);
-          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.shaderSource(
+      vertexShader,
+      `
+        attribute vec4 position;
+        varying vec2 vUV;
+        void main() {
+          vUV = position.xy * 0.5 + 0.5;
+          // 修改此处，翻转Y坐标
+          gl_Position = vec4(position.x, -position.y, position.z, position.w);
         }
-      }
-    }
+      `
+    );
+    gl.compileShader(vertexShader);
+
+    // 片元着色器
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!;
+
+    gl.shaderSource(
+      fragmentShader,
+      `
+        precision mediump float;
+        varying vec2 vUV;
+        uniform sampler2D texture;
+        void main() {
+          vec4 texColor = texture2D(texture, vUV);
+          gl_FragColor = texture2D(texture, vUV);
+        }
+      `
+    );
+    gl.compileShader(fragmentShader);
+
+    // 创建着色器程序
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    // 创建缓冲区
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0]),
+      gl.STATIC_DRAW
+    );
+
+    // 链接顶点属性
+    const positionLocation = gl.getAttribLocation(program, "position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
   }
 
   renderWebgl(
@@ -249,8 +355,36 @@ export default class AnimationPlayback<
   }
 
   async sleep(delay: number) {
-    return new Promise<number>((resolve) => {
-      timeout(resolve, delay);
-    });
+    if (delay <= 0) {
+      return Promise.resolve(0);
+    } else {
+      return new Promise<number>((resolve) => {
+        this.timeout(resolve, delay);
+      });
+    }
+  }
+
+  timeout(callback: (time: number) => void, ms = 0) {
+    let start: number;
+    const step = (timestamp: number) => {
+      if (start === undefined) start = timestamp;
+      const elapsed = timestamp - start;
+      if (elapsed >= ms) {
+        callback(elapsed);
+      } else {
+        this.requestAnimationFrame(step);
+      }
+    };
+    this.requestAnimationFrame(step);
+  }
+
+  destroy() {
+    this.pause();
+    this.index = 0;
+    this.frameIndex = 0;
+  }
+
+  requestAnimationFrame(callback: FrameRequestCallback) {
+    this.framesCancel.push(window.requestAnimationFrame(callback));
   }
 }

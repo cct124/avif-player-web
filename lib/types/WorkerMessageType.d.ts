@@ -47,9 +47,17 @@ export declare enum DecoderChannel {
      */
     WorkerCommunication = -1,
     error = 0,
+    /**
+     * 帧数据解码完成
+     */
     nextImage = 1,
+    /**
+     * AVIF文件解析完成
+     */
     avifParse = 2,
-    firstFrameDecode = 3,
+    /**
+     * 首帧数据解码完成
+     */
     /**
      * 所有图像数据解码完成
      */
@@ -88,7 +96,7 @@ export interface AvifDecoderNextImageData {
     /**
      * 帧索引
      */
-    index: number;
+    frameIndex: number;
     /**
      * 图像宽度
      */

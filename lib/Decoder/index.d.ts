@@ -41,6 +41,7 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
     decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
     decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
     avifDecoderAllImage(): void;
+    clearNthImageMessage(): void;
 }
 export declare class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
     private workerListeners;
@@ -75,5 +76,6 @@ export declare class MainEventEmitter<W, M extends DecoderEventMap> extends Deco
     onmessage<T extends keyof W>(channel: T, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
     private listenOnmessage;
     setDecoder(worker: Worker): void;
+    clearOnmessageAll<T extends keyof W>(channel?: T): void;
 }
 export {};

@@ -29,6 +29,7 @@ export declare class LibavifDecoder extends MainEventEmitter<WorkerAvifDecoderEv
      */
     avifDecoderParse(arrayBuffer: ArrayBuffer): Promise<unknown>;
     avifDecoderAllImage(): void;
+    clearNthImageMessage(): void;
     /**
      * 销毁解码器
      */

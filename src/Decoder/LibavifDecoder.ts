@@ -71,13 +71,12 @@ export class LibavifDecoder extends MainEventEmitter<
         this.onmessageOnce(
           WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
           (data, arrayBuffer) => {
-            if (data.index === frameIndex) {
-              const decoderImageData: DecoderImageData = {
-                ...data,
-                pixels: arrayBuffer!,
-              };
-              resolve(decoderImageData);
-            }
+            const decoderImageData: DecoderImageData = {
+              ...data,
+              pixels: arrayBuffer!,
+            };
+            this.emit(DecoderChannel.nextImage, decoderImageData);
+            resolve(decoderImageData);
           }
         );
       } catch (error) {
@@ -127,8 +126,14 @@ export class LibavifDecoder extends MainEventEmitter<
     this.onmessageOnce(
       WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
       (data) => {
-        console.log(data.index);
+        console.log(data.frameIndex);
       }
+    );
+  }
+
+  clearNthImageMessage() {
+    this.clearOnmessageAll(
+      WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult
     );
   }
 
@@ -136,8 +141,10 @@ export class LibavifDecoder extends MainEventEmitter<
    * 销毁解码器
    */
   destroy() {
-    this.emit(DecoderChannel.destroy, {});
+    this.clearAll();
+    this.clearOnmessageAll();
     this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderDestroy, {});
     this.worker = null;
+    this.emit(DecoderChannel.destroy, {});
   }
 }
