@@ -131,7 +131,7 @@ export default class AnimationPlayback<
     if (this.option.async) {
       this.resetFramesStatus(this.decoder.imageCount);
       this.arrayBuffStackSize = 0;
-      console.log(this.arrayBuffStackSize);
+      // console.log(this.arrayBuffStackSize);
     }
   }
 
@@ -193,6 +193,8 @@ export default class AnimationPlayback<
   }
 
   async updateSync() {
+    // console.log('updateSync');
+    
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
@@ -200,6 +202,8 @@ export default class AnimationPlayback<
     for (; this.loopCount < this.option.loop!; this.loopCount++) {
       while (this.index < this.decoder.imageCount) {
         const imageData = await this.decoder.decoderNthImage(this.index);
+        console.log('---imageData---', this.index);
+        
         const delay = this.index
           ? imageData.duration * 1000 - imageData.decodeTime
           : 0;

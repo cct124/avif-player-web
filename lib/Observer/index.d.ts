@@ -29,18 +29,19 @@ export declare class Observer<M> {
     clear<T extends keyof M>(channel: T, handler: (data: M[T]) => void): boolean;
     clearAll<T extends keyof M>(channel?: T): void;
 }
-export declare class WorkerEventEmitter<M> {
-    private eventListeners;
+export declare class WorkerEventEmitter<M, C, W> extends Observer<W> {
+    private workerEventListeners;
     constructor();
-    send<T extends keyof M>(channel: T, data: M[T], arrayBuffer?: ArrayBuffer): void;
-    on<T extends keyof M>(channel: T, handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void): void;
+    postMessage<T extends keyof M, A extends keyof C>(channel: T | number, data: M[T] | C[A], arrayBuffer?: ArrayBuffer): void;
+    onmessage<T extends keyof M = keyof M>(channel: T, handler: (data: M[T], arrayBuffer?: ArrayBuffer, callback?: <A extends keyof C>(data: C[A], arrayBuffer?: ArrayBuffer) => void) => void): void;
     /**
      * 为给定事件添加一次性侦听器。
      * @param channel 频道
      * @param listener 事件回调
      * @returns
      */
-    once<T extends keyof M>(channel: T, handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void): this;
-    clear<T extends keyof M>(channel: T, handler: (data: M[T]) => void): boolean;
+    onmessageOnce<T extends keyof M>(channel: T, handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void): this;
+    clearOnmessage<T extends keyof M>(channel: T, handler: (data: M[T]) => void): boolean;
     private listen;
+    callback<A extends keyof C>(callbackSymbol: number, channel?: string | number | symbol): (data: C[A], arrayBuffer?: ArrayBuffer) => void;
 }

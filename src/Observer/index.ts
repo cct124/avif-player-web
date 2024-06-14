@@ -75,19 +75,33 @@ export class Observer<M> {
   }
 }
 
-export class WorkerEventEmitter<M> {
-  private eventListeners = new Map<
+export class WorkerEventEmitter<M, C, W> extends Observer<W> {
+  private workerEventListeners = new Map<
     keyof M,
-    Set<(data: any, arrayBuffer?: ArrayBuffer) => void>
+    Set<
+      (
+        data: any,
+        arrayBuffer?: ArrayBuffer,
+        callback?: <A extends keyof C>(
+          data: C[A],
+          arrayBuffer?: ArrayBuffer
+        ) => void
+      ) => void
+    >
   >();
 
   constructor() {
+    super();
     onmessage = (...args) => {
       this.listen(...args);
     };
   }
 
-  send<T extends keyof M>(channel: T, data: M[T], arrayBuffer?: ArrayBuffer) {
+  postMessage<T extends keyof M, A extends keyof C>(
+    channel: T | number,
+    data: M[T] | C[A],
+    arrayBuffer?: ArrayBuffer
+  ) {
     if (data instanceof ArrayBuffer) {
       postMessage([channel, data], [data]);
     } else {
@@ -99,15 +113,22 @@ export class WorkerEventEmitter<M> {
     }
   }
 
-  on<T extends keyof M>(
+  onmessage<T extends keyof M = keyof M>(
     channel: T,
-    handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void
+    handler: (
+      data: M[T],
+      arrayBuffer?: ArrayBuffer,
+      callback?: <A extends keyof C>(
+        data: C[A],
+        arrayBuffer?: ArrayBuffer
+      ) => void
+    ) => void
   ) {
-    if (this.eventListeners.has(channel)) {
-      const listeners = this.eventListeners.get(channel)!;
+    if (this.workerEventListeners.has(channel)) {
+      const listeners = this.workerEventListeners.get(channel)!;
       listeners.add(handler);
     } else {
-      this.eventListeners.set(channel, new Set([handler]));
+      this.workerEventListeners.set(channel, new Set([handler]));
     }
   }
 
@@ -117,21 +138,21 @@ export class WorkerEventEmitter<M> {
    * @param listener 事件回调
    * @returns
    */
-  once<T extends keyof M>(
+  onmessageOnce<T extends keyof M>(
     channel: T,
     handler: (data: M[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
     const _handle = (ev: M[T], arrayBuffer?: ArrayBuffer) => {
-      this.clear(channel, _handle);
+      this.clearOnmessage(channel, _handle);
       handler.call(this, ev, arrayBuffer);
     };
 
-    this.on(channel, _handle);
+    this.onmessage(channel, _handle);
     return this;
   }
 
-  clear<T extends keyof M>(channel: T, handler: (data: M[T]) => void) {
-    const handlers = this.eventListeners.get(channel);
+  clearOnmessage<T extends keyof M>(channel: T, handler: (data: M[T]) => void) {
+    const handlers = this.workerEventListeners.get(channel);
     if (handlers) {
       return handlers.delete(handler);
     }
@@ -141,12 +162,29 @@ export class WorkerEventEmitter<M> {
   private listen<T extends keyof M>(
     ev: MessageEvent<MessageEventType<T, M[T]>>
   ) {
-    const [channel, data, arrayBuffer] = ev.data;
-    if (this.eventListeners.has(channel)) {
-      const listeners = this.eventListeners.get(channel)!;
+    const [channel, data, arrayBuffer, callbackSymbol] = ev.data;
+    const args: any[] = [data];
+    if (arrayBuffer instanceof ArrayBuffer) {
+      args.push(arrayBuffer, this.callback(callbackSymbol, channel));
+    } else {
+      args.push(null, this.callback(arrayBuffer, channel));
+    }
+    if (this.workerEventListeners.has(channel)) {
+      const listeners = this.workerEventListeners.get(channel)!;
       for (const listener of listeners) {
-        listener(data, arrayBuffer);
+        listener(args[0], args[1], args[2]);
       }
+    }
+  }
+
+  callback<A extends keyof C>(
+    callbackSymbol: number,
+    channel?: string | number | symbol
+  ) {
+    if (callbackSymbol) {
+      return (data: C[A], arrayBuffer?: ArrayBuffer) => {
+        this.postMessage(callbackSymbol, data, arrayBuffer);
+      };
     }
   }
 }

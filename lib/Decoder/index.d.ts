@@ -42,8 +42,9 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
     decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
     avifDecoderAllImage(): void;
     clearNthImageMessage(): void;
+    streamingArrayBuffer(done: boolean, arrayBuffer: Uint8Array, size: number): void;
 }
-export declare class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
+export declare class MainEventEmitter<W, C, M extends DecoderEventMap> extends Decoder<M> {
     private workerListeners;
     worker: Worker;
     constructor(worker: Worker);
@@ -51,29 +52,30 @@ export declare class MainEventEmitter<W, M extends DecoderEventMap> extends Deco
      * 发送事件到Worker线程
      * @param channel
      * @param data
-     * @param args
+     * @param arrayBuffer
+     * @param callback 可选的回调函数
      */
-    postMessage<T extends keyof W>(channel: T, data: W[T], arrayBuffer?: ArrayBuffer): void;
+    postMessage<A extends keyof C, T extends keyof W = keyof W>(channel: T | string, data: W[T], arrayBuffer?: ArrayBuffer, callback?: (data: C[A], arrayBuffer?: ArrayBuffer) => void): void;
     /**
      * 为给定的Worker线程事件添加一次性侦听器。
      * @param channel 频道
      * @param handler 事件回调
      * @returns
      */
-    onmessageOnce<T extends keyof W>(channel: T, handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void): this;
+    onmessageOnce<T extends keyof W>(channel: T | string, handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void): this;
     /**
      * 清除Worker线程事件
      * @param channel
      * @param handler
      * @returns
      */
-    clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void): boolean;
+    clearOnmessage<T extends keyof W>(channel: T | string, handler: (data: W[T]) => void): boolean;
     /**
      * 监听Worker线程发送的事件
      * @param channel
      * @param handler
      */
-    onmessage<T extends keyof W>(channel: T, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
+    onmessage<T extends keyof W>(channel: T | string, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
     private listenOnmessage;
     setDecoder(worker: Worker): void;
     clearOnmessageAll<T extends keyof W>(channel?: T): void;

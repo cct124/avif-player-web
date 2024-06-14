@@ -1,3 +1,6 @@
+import MD5 from "crypto-js/md5";
+import Hex from "crypto-js/enc-hex";
+
 /**
  * # 深度混入
  * `obj1`混入`obj2`中
@@ -63,4 +66,17 @@ export function sleep(delay: number) {
 
 export function isNumeric(num: number) {
   return typeof num === "number";
+}
+
+/**
+ * 快速生成唯一id
+ * @returns
+ */
+export function generateQuickUniqueId() {
+  // 获取当前时间戳和随机数的组合
+  const uniqueString =
+    new Date().getTime().toString() + Math.random().toString();
+  // 使用MD5哈希函数生成快速唯一ID
+  const uniqueId = MD5(uniqueString).toString(Hex);
+  return uniqueId;
 }
