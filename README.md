@@ -158,13 +158,13 @@ export interface AvifPlayerWebOptions {
 
 ![alt text](doc/Libavif.png)
 
-[Emscripten]: (https://emscripten.org/)
-[Webassembly]: (https://webassembly.org)
-[AVIF]: (https://en.wikipedia.org/wiki/AVIF)
-[Worker]: (https://developer.mozilla.org/zh-CN/docs/Web/API/Web_Workers_API/Using_web_workers#web_workers_api)
-[AV1]: (https://en.wikipedia.org/wiki/AV1)
-[H264]: (https://en.wikipedia.org/wiki/Advanced_Video_Coding)
-[H265]: (https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding)
-[IntraPrediction]: (https://en.wikipedia.org/wiki/Intra-frame_coding)
-[APNG]: (https://en.wikipedia.org/wiki/APNG)
-[Pinterest]: (https://www.pinterest.es/pin/42221315251843026/)
+[Emscripten]: https://emscripten.org/ "Emscripten"
+[Webassembly]: https://webassembly.org "Webassembly"
+[AVIF]: https://en.wikipedia.org/wiki/AVIF "AVIF"
+[Worker]: https://developer.mozilla.org/zh-CN/docs/Web/API/Web_Workers_API/Using_web_workers#web_workers_api "Worker"
+[AV1]: https://en.wikipedia.org/wiki/AV1 "AV1"
+[H264]: https://en.wikipedia.org/wiki/Advanced_Video_Coding "H264"
+[H265]: https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding "H265"
+[IntraPrediction]: https://en.wikipedia.org/wiki/Intra-frame_coding "IntraPrediction"
+[APNG]: https://en.wikipedia.org/wiki/APNG "APNG"
+[Pinterest]: https://www.pinterest.es/pin/42221315251843026/ "Pinterest"
