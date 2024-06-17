@@ -41,7 +41,7 @@ const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
   }
 );
 
-AvifPlayerWeb.on(
+avifPlayerWeb.on(
   // AvifPlayerWeb对象的所有事件都在AvifPlayerWebChannel枚举中
   AvifPlayerWeb.AvifPlayerWebChannel.frameIndexChange,
   (data) => {
