@@ -39,7 +39,16 @@ export declare enum WorkerAvifDecoderMessageChannel {
     /**
      * 输出
      */
-    avifDecoderConsole = 10
+    avifDecoderConsole = 10,
+    /**
+     * 文件数据流
+     */
+    avifStreamingArrayBuffer = 11,
+    /**
+     * 解析AVIF文件数据流
+     */
+    avifDecodeStreamingParse = 12,
+    avifDecoderStreamingNthImage = 13
 }
 export declare enum DecoderChannel {
     /**
@@ -161,6 +170,25 @@ export interface AvifDecoderNthImageData {
      */
     frameIndex: number;
 }
+export interface StreamingArrayBuffer {
+    /**
+     * 内容大小
+     */
+    size: number;
+    /**
+     * 内容是否完全返回
+     */
+    done: boolean;
+}
+export interface StreamingArrayBufferCallBack {
+    byteLength: number;
+}
+export interface AvifDecodeStreamingParse {
+    /**
+     * 唯一资源标识
+     */
+    id: string;
+}
 export interface WorkerAvifDecoderEventMap {
     [WorkerAvifDecoderMessageChannel.avifDecoderParse]: AvifDecoderParseData;
     [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
@@ -175,4 +203,23 @@ export interface WorkerAvifDecoderEventMap {
     [WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult]: AvifDecoderNextImageData;
     [WorkerAvifDecoderMessageChannel.avifDecoderDestroy]: {};
     [WorkerAvifDecoderMessageChannel.avifDecoderConsole]: {};
+    [WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer]: StreamingArrayBuffer;
+    [WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse]: AvifDecodeStreamingParse;
+    [WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage]: AvifDecoderNthImageData;
+}
+export interface WorkerAvifDecoderCallBackEventMap {
+    [WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer]: StreamingArrayBufferCallBack;
+    [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNextImageData;
+    [WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse]: AvifDecoderParseComplete;
+    [WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage]: AvifDecoderNextImageData;
+}
+export declare enum AvifDecoderMessageChannel {
+    streamingArrayBuffer = 1,
+    streamingArrayBufferComplete = 2,
+    avifDecoderParseComplete = 3
+}
+export interface AvifDecoderEventMap {
+    [AvifDecoderMessageChannel.streamingArrayBuffer]: StreamingArrayBufferCallBack;
+    [AvifDecoderMessageChannel.streamingArrayBufferComplete]: {};
+    [AvifDecoderMessageChannel.avifDecoderParseComplete]: AvifDecoderParseComplete;
 }

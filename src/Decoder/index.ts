@@ -5,6 +5,7 @@ import {
   DecoderEventMap,
   DecoderImageData,
 } from "../types/WorkerMessageType";
+import { generateQuickUniqueId } from "../utils";
 
 abstract class DecoderAbstract {
   /**
@@ -60,13 +61,20 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   avifDecoderAllImage() {}
 
   clearNthImageMessage() {}
+
+  streamingArrayBuffer(done: boolean, arrayBuffer: Uint8Array, size: number) {}
 }
 
-export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
+export class MainEventEmitter<
+  W,
+  C,
+  M extends DecoderEventMap,
+> extends Decoder<M> {
   private workerListeners = new Map<
-    keyof W,
+    keyof W | string,
     Set<(data: any, arrayBuffer?: ArrayBuffer) => void>
   >();
+  private callbackUniqueIds = new Map<keyof W | string, Set<string>>();
   worker: Worker;
 
   constructor(worker: Worker) {
@@ -78,22 +86,41 @@ export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
    * 发送事件到Worker线程
    * @param channel
    * @param data
-   * @param args
+   * @param arrayBuffer
+   * @param callback 可选的回调函数
    */
-  postMessage<T extends keyof W>(
-    channel: T,
+  postMessage<A extends keyof C, T extends keyof W = keyof W>(
+    channel: T | string,
     data: W[T],
-    arrayBuffer?: ArrayBuffer
+    arrayBuffer?: ArrayBuffer,
+    callback?: (data: C[A], arrayBuffer?: ArrayBuffer) => void
   ) {
+    const args = [];
     if (data instanceof ArrayBuffer) {
-      this.worker.postMessage([channel, data], [data]);
+      args.push([channel, data], [data]);
     } else {
       if (arrayBuffer instanceof ArrayBuffer) {
-        this.worker.postMessage([channel, data, arrayBuffer], [arrayBuffer]);
+        args.push([channel, data, arrayBuffer], [arrayBuffer]);
       } else {
-        this.worker.postMessage([channel, data]);
+        args.push([channel, data]);
       }
     }
+    if (callback) {
+      const callbackUniqueId = generateQuickUniqueId();
+      this.onmessageOnce(callbackUniqueId, (data: any, arrayBuffer) => {
+        if (this.callbackUniqueIds.has(channel)) {
+          this.callbackUniqueIds.get(channel)!.delete(callbackUniqueId);
+        }
+        callback(data, arrayBuffer);
+      });
+      if (this.callbackUniqueIds.has(channel)) {
+        this.callbackUniqueIds.get(channel)!.add(callbackUniqueId);
+      } else {
+        this.callbackUniqueIds.set(channel, new Set([callbackUniqueId]));
+      }
+      args[0].push(callbackUniqueId);
+    }
+    this.worker.postMessage(args[0], args[1] as any);
   }
 
   /**
@@ -103,7 +130,7 @@ export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
    * @returns
    */
   onmessageOnce<T extends keyof W>(
-    channel: T,
+    channel: T | string,
     handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
     const _handle = (ev: W[T], arrayBuffer?: ArrayBuffer) => {
@@ -120,7 +147,10 @@ export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
    * @param handler
    * @returns
    */
-  clearOnmessage<T extends keyof W>(channel: T, handler: (data: W[T]) => void) {
+  clearOnmessage<T extends keyof W>(
+    channel: T | string,
+    handler: (data: W[T]) => void
+  ) {
     const handlers = this.workerListeners.get(channel);
     if (handlers) {
       handlers.delete(handler);
@@ -135,7 +165,7 @@ export class MainEventEmitter<W, M extends DecoderEventMap> extends Decoder<M> {
    * @param handler
    */
   onmessage<T extends keyof W>(
-    channel: T,
+    channel: T | string,
     handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void
   ) {
     if (this.workerListeners.has(channel)) {

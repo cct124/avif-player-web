@@ -1,6 +1,11 @@
 import { FrameIndexChangeEvent } from "../AnimationPlayback/type";
 
-export type MessageEventType<T, E> = [T, E, ArrayBuffer | undefined];
+export type MessageEventType<T, E> = [
+  T,
+  E,
+  ArrayBuffer | undefined,
+  number | undefined,
+];
 
 export enum AvifPlayerWebChannel {
   /**

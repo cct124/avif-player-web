@@ -2,7 +2,7 @@ import MD5 from "crypto-js/md5";
 import WebpackWorker from "./Worker/Libavif.worker";
 // import DecoderManager from "./DecoderManager/index";
 import { AvifPlayerWebOptions } from "./types/AvifPlayerWebType";
-import { deepMixins } from "./utils";
+import { deepMixins, isNumeric } from "./utils";
 import AnimationPlayback from "./AnimationPlayback";
 import {
   DecoderChannel,
@@ -62,6 +62,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
       autoplay: false,
       initDecoderInstantly: false,
       initDecoderAvifInstantly: false,
+      enableStreaming: true,
     } as AvifPlayerWebOptions);
     // 判断是元素id还是DOM对象
     if (typeof this.option.canvas === "string") {
@@ -94,7 +95,8 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
       try {
         this.libavifDecoder = new LibavifDecoder(
           new WebpackWorker() as unknown as Worker,
-          this.resourceSymbolId
+          this.resourceSymbolId,
+          this.option.enableStreaming
         );
         if (reset && this.animationPlayback) {
           this.animationPlayback.setDecoder(this.libavifDecoder);
@@ -142,11 +144,55 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   private async decoderParsePlay(url: string | ArrayBuffer) {
     if (!this.libavifDecoder.decoderParseComplete) {
       this.setCanvasSize();
-      this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
-      await this.libavifDecoder.decoderParse(this.avifFileArrayBuffer!);
+      if (this.option.enableStreaming && typeof url === "string") {
+        await this.streamingArrayBuffer(url, this.libavifDecoder);
+        await this.libavifDecoder.decoderParse();
+      } else {
+        this.avifFileArrayBuffer = await this.fillArrayBuffer(url);
+        await this.libavifDecoder.decoderParse(this.avifFileArrayBuffer!);
+      }
       this.animationPlayback.initRender();
       return;
     }
+  }
+
+  private async streamingArrayBuffer(
+    url: string,
+    libavifDecoder: LibavifDecoder
+  ) {
+    return new Promise((resolve, reject) => {
+      try {
+        fetch(url)
+          .then((response) => {
+            const reader = response.body.getReader();
+            const size = Number(response.headers.get("Content-Length"));
+            if (isNumeric(size)) {
+              return reader.read().then(function processChunk({
+                done,
+                value,
+              }): any {
+                libavifDecoder
+                  .streamingArrayBuffer(done, value, size)
+                  .then(resolve);
+                if (done) return;
+                // 继续读取下一个数据块
+                return reader.read().then(processChunk);
+              });
+            }
+            throw new Error(
+              `数据流请求头内容长度错误，Content-Length: ${response.headers.get("Content-Length")}`
+            );
+          })
+          .then(() => {
+            return;
+          })
+          .catch((error) => {
+            throw error;
+          });
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   /**

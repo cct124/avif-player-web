@@ -1,4 +1,5 @@
 import {
+  AvifDecoderMessageChannel,
   WorkerAvifDecoderEventMap,
   WorkerAvifDecoderMessageChannel,
 } from "../types/WorkerMessageType";
@@ -8,6 +9,20 @@ import LibavifWorker from "./Libavif.worker";
 
 const AVIF_RGB_IMAGE_STRUCT_SIZE = 64;
 const AVIF_RGB_IMAGE_TIMING_STRUCT_SIZE = 40;
+
+export interface ImageDataInfo {
+  id: string;
+  timescale: number;
+  pts: number;
+  ptsInTimescales: number;
+  duration: number;
+  durationInTimescales: number;
+  frameIndex: number;
+  width: any;
+  height: any;
+  depth: any;
+  decodeTime: number;
+}
 
 export default class Libavif {
   AwsmAvifDecode: any;
@@ -22,10 +37,115 @@ export default class Libavif {
   rbgPtr?: number;
   decodeStats: number[] = [];
   libavifWorker: LibavifWorker;
+  avifIOPtr: number;
+  streamingArrayBufferDone = false;
+  streamingArrayBufferSize = 0;
+  streamingArrayBufferOffset = 0;
+  avifDecoderParseComplete = false;
+  streamingArrayBufferComplete = false;
 
   constructor(libavifWorker: LibavifWorker, awsmAvifDecode: any) {
     this.libavifWorker = libavifWorker;
     this.AwsmAvifDecode = awsmAvifDecode;
+    // console.log(this.AwsmAvifDecode);
+  }
+
+  /**
+   * 数据流写入内存
+   * @param done
+   * @param size
+   * @param arrayBuffer
+   * @returns
+   */
+  streamingArrayBuffer(done: boolean, size: number, arrayBuffer: ArrayBuffer) {
+    this.streamingArrayBufferDone = done;
+    if (this.streamingArrayBufferDone) {
+      this.streamingArrayBufferComplete = true;
+      this.libavifWorker.emit(
+        AvifDecoderMessageChannel.streamingArrayBufferComplete,
+        {}
+      );
+      return;
+    }
+    if (this.streamingArrayBufferSize === 0) {
+      this.streamingArrayBufferSize = size;
+    }
+    if (!this.bufferPtr) {
+      this.bufferPtr = this.AwsmAvifDecode._malloc(
+        this.streamingArrayBufferSize
+      );
+
+      if (!this.bufferPtr) {
+        throw new Error("Failed to allocate memory for buffer");
+      }
+    }
+    // 将新数据写入 HEAPU8
+    this.AwsmAvifDecode.HEAPU8.set(
+      new Uint8Array(arrayBuffer),
+      this.bufferPtr + this.streamingArrayBufferOffset
+    );
+
+    this.streamingArrayBufferOffset += arrayBuffer.byteLength;
+    // console.log(this.streamingArrayBufferOffset, size);
+
+    return arrayBuffer.byteLength;
+  }
+
+  /**
+   * 解析avif数据流，调用这个方法时必须先调用`streamingArrayBuffer`
+   */
+  avifDecodeStreamingCreate() {
+    try {
+      this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
+      if (!this.decoderPtr) {
+        this.free(this.bufferPtr);
+        throw new Error("Failed to create decoder");
+      }
+
+      this.AwsmAvifDecode._avifSetDecoderExifXMP(0);
+      this.avifIOPtr = this.AwsmAvifDecode._avifIOCreateStreamingReader(
+        this.bufferPtr,
+        this.streamingArrayBufferSize
+      );
+
+      if (!this.avifIOPtr) {
+        if (this.bufferPtr) this.free(this.bufferPtr);
+        if (this.decoderPtr) this.free(this.decoderPtr);
+      }
+
+      this.AwsmAvifDecode._avifDecoderSetIO(this.decoderPtr, this.avifIOPtr);
+    } catch (error) {
+      this.error(new Error(`${error}`));
+      if (this.bufferPtr) this.free(this.bufferPtr);
+      if (this.decoderPtr) this.free(this.decoderPtr);
+    }
+  }
+
+  updateDownloadedBytes() {
+    this.AwsmAvifDecode._avifSetDownloadedBytes(
+      this.avifIOPtr,
+      this.streamingArrayBufferOffset
+    );
+  }
+
+  avifDecodeStreamingParse() {
+    if (this.avifDecoderParseComplete) return;
+
+    const result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
+    if (result == AVIF_RESULT.AVIF_RESULT_OK) {
+      this.avifDecoderParseComplete = true;
+      this.imageCount = this.AwsmAvifDecode._avifGetImageCount(this.decoderPtr);
+      this.width = this.AwsmAvifDecode._avifGetImageWidth(this.decoderPtr);
+      this.height = this.AwsmAvifDecode._avifGetImageHeight(this.decoderPtr);
+      this.libavifWorker.emit(
+        AvifDecoderMessageChannel.avifDecoderParseComplete,
+        {
+          imageCount: this.imageCount,
+          width: this.width!,
+          height: this.height!,
+        }
+      );
+    }
   }
 
   avifDecoderParse(arrayBuffer: ArrayBuffer) {
@@ -40,7 +160,6 @@ export default class Libavif {
         new Uint8Array(arrayBuffer),
         this.bufferPtr
       );
-
       this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
       if (!this.decoderPtr) {
         this.free(this.bufferPtr);
@@ -85,9 +204,21 @@ export default class Libavif {
     }
   }
 
-  avifDecoderNthImage(id: string, frameIndex: number) {
+  avifDecoderNextImage(id: string, frameIndex: number) {
+    const result = this.AwsmAvifDecode._avifDecoderNthImage(
+      this.decoderPtr,
+      frameIndex
+    );
+    return result;
+  }
+
+  avifDecoderNthImage(
+    id: string,
+    frameIndex: number
+  ): [ImageDataInfo, Uint8ClampedArray] | number {
     let result = 0;
     let t1 = performance.now();
+
     if (
       (result = this.AwsmAvifDecode._avifDecoderNthImage(
         this.decoderPtr,
@@ -125,14 +256,23 @@ export default class Libavif {
       const width = this.AwsmAvifDecode._avifGetRGBImageWidth(this.rbgPtr);
       const height = this.AwsmAvifDecode._avifGetRGBImageHeight(this.rbgPtr);
       const depth = this.AwsmAvifDecode._avifGetRGBImageDepth(this.rbgPtr);
-      const _pixels = new Uint8ClampedArray(
+      const pixels = new Uint8ClampedArray(
         this.AwsmAvifDecode.HEAPU8.buffer,
         pixelsPtr,
         width * height * 4
       );
-      const pixels = _pixels.slice();
-      this.libavifWorker.send(
-        WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult,
+
+      this.AwsmAvifDecode._avifRGBImageFreePixels(this.rbgPtr);
+      this.free(timingPtr);
+
+      if (frameIndex === this.imageCount) {
+        this.libavifWorker.postMessage(
+          WorkerAvifDecoderMessageChannel.decodingComplete,
+          {}
+        );
+      }
+
+      return [
         {
           id,
           timescale: timing.timescale,
@@ -146,21 +286,11 @@ export default class Libavif {
           depth,
           decodeTime: performance.now() - t1,
         },
-        pixels.buffer
-      );
-
-      this.AwsmAvifDecode._avifRGBImageFreePixels(this.rbgPtr);
-      // this.free(this.rbgPtr!);
-      this.free(timingPtr);
-      // this.free(imagePtr);
+        pixels.slice(),
+      ];
     }
 
-    if (frameIndex === this.imageCount) {
-      this.libavifWorker.send(
-        WorkerAvifDecoderMessageChannel.decodingComplete,
-        {}
-      );
-    }
+    return result;
   }
 
   avifDecoderImage(id: string) {
@@ -219,7 +349,7 @@ export default class Libavif {
         );
         const pixels = _pixels.slice();
 
-        this.libavifWorker.send(
+        this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
           {
             id,
@@ -243,7 +373,7 @@ export default class Libavif {
       }
 
       if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING) {
-        this.libavifWorker.send(
+        this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.decodingComplete,
           {}
         );
@@ -290,7 +420,10 @@ export default class Libavif {
   }
 
   error(error: Error) {
-    this.libavifWorker.send(WorkerAvifDecoderMessageChannel.error, error);
+    this.libavifWorker.postMessage(
+      WorkerAvifDecoderMessageChannel.error,
+      error
+    );
   }
 
   free(ptr: number) {
@@ -311,7 +444,7 @@ export default class Libavif {
   }
 
   print(data: any) {
-    this.libavifWorker.send(
+    this.libavifWorker.postMessage(
       WorkerAvifDecoderMessageChannel.avifDecoderConsole,
       data
     );

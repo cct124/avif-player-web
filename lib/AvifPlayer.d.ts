@@ -33,6 +33,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     pause(): void;
     play(): Promise<void>;
     private decoderParsePlay;
+    private streamingArrayBuffer;
     /**
      * 获取avif文件的Uint8Array数据
      * @param url
