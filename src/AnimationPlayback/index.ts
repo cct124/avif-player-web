@@ -102,7 +102,10 @@ export default class AnimationPlayback<
         if (isNumeric(index)) this.index = index;
         if (this.option.async) {
           this.resetFramesStatus(this.decoder.imageCount);
-          if (this.paused) this.index = this.frameIndex + 1;
+          if (this.paused) {
+            this.index = this.frameIndex + 1;
+            this.framesPerformanceDelay[this.frameIndex] = performance.now();
+          }
         }
         this.update(this.paused ? this.pts : 0);
       } else {
@@ -131,7 +134,6 @@ export default class AnimationPlayback<
     if (this.option.async) {
       this.resetFramesStatus(this.decoder.imageCount);
       this.arrayBuffStackSize = 0;
-      // console.log(this.arrayBuffStackSize);
     }
   }
 
@@ -139,7 +141,7 @@ export default class AnimationPlayback<
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
-    let startTime = (this.lastTimestamp = performance.now() - diff);
+    let prevFrameTime = (this.lastTimestamp = performance.now() - diff);
 
     for (; this.loopCount < this.option.loop!; this.loopCount++) {
       while (this.index < this.decoder.imageCount) {
@@ -147,25 +149,19 @@ export default class AnimationPlayback<
         if (this.paused) return;
         const now = performance.now();
 
-        startTime = this.framesPerformanceDelay[
-          this.framesPerformanceDelay.length - 1
-        ]
-          ? this.framesPerformanceDelay[this.framesPerformanceDelay.length - 1]
-          : startTime;
+        prevFrameTime =
+          this.framesPerformanceDelay[imageData.frameIndex - 1] ||
+          prevFrameTime;
 
-        const frameDisplayTime = startTime + imageData.pts * 1000;
+        const frameDisplayTime = prevFrameTime + imageData.duration * 1000;
         let delay = frameDisplayTime - now;
         if (delay < 0) delay = 0;
-
-        const prevDelay = imageData.frameIndex
-          ? this.framesPerformanceDelay[imageData.frameIndex - 1]
-          : this.framesPerformanceDelay[
-              this.framesPerformanceDelay.length - 1
-            ] || 0;
         this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
 
-        if (prevDelay > this.framesPerformanceDelay[imageData.frameIndex]) {
-          delay = prevDelay - now + 1;
+        if (
+          prevFrameTime >= this.framesPerformanceDelay[imageData.frameIndex]
+        ) {
+          delay = prevFrameTime - now;
           this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
         }
 
