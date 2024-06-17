@@ -47,7 +47,7 @@ export default class Libavif {
   constructor(libavifWorker: LibavifWorker, awsmAvifDecode: any) {
     this.libavifWorker = libavifWorker;
     this.AwsmAvifDecode = awsmAvifDecode;
-    console.log(this.AwsmAvifDecode);
+    // console.log(this.AwsmAvifDecode);
   }
 
   /**
@@ -132,7 +132,6 @@ export default class Libavif {
     if (this.avifDecoderParseComplete) return;
 
     const result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
-
     if (result == AVIF_RESULT.AVIF_RESULT_OK) {
       this.avifDecoderParseComplete = true;
       this.imageCount = this.AwsmAvifDecode._avifGetImageCount(this.decoderPtr);
@@ -161,8 +160,6 @@ export default class Libavif {
         new Uint8Array(arrayBuffer),
         this.bufferPtr
       );
-      console.log(this.AwsmAvifDecode.getValue(this.bufferPtr + 4));
-
       this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
       if (!this.decoderPtr) {
         this.free(this.bufferPtr);
@@ -208,12 +205,10 @@ export default class Libavif {
   }
 
   avifDecoderNextImage(id: string, frameIndex: number) {
-    // const result = this.AwsmAvifDecode._avifDecoderNextImage(this.decoderPtr);
     const result = this.AwsmAvifDecode._avifDecoderNthImage(
       this.decoderPtr,
       frameIndex
     );
-    console.log(result);
     return result;
   }
 
@@ -230,8 +225,6 @@ export default class Libavif {
         frameIndex
       )) === AVIF_RESULT.AVIF_RESULT_OK
     ) {
-      console.log('result');
-
       const imagePtr = this.AwsmAvifDecode._avifGetDecoderImage(
         this.decoderPtr
       );

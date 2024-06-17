@@ -184,7 +184,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
             );
           })
           .then(() => {
-            console.log("All data has been fetched and stored in HEAPU8");
+            return;
           })
           .catch((error) => {
             throw error;

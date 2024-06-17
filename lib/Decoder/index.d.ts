@@ -46,6 +46,7 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
 }
 export declare class MainEventEmitter<W, C, M extends DecoderEventMap> extends Decoder<M> {
     private workerListeners;
+    private callbackUniqueIds;
     worker: Worker;
     constructor(worker: Worker);
     /**

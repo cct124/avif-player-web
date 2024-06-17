@@ -125,7 +125,7 @@ export default class AnimationPlayback<
     this.framesCancel.forEach((handle) => {
       window.cancelAnimationFrame(handle);
     });
-    this.decoder.clearNthImageMessage();
+    // this.decoder.clearNthImageMessage();
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
     this.playing = false;
     if (this.option.async) {
@@ -142,8 +142,9 @@ export default class AnimationPlayback<
     let startTime = (this.lastTimestamp = performance.now() - diff);
 
     for (; this.loopCount < this.option.loop!; this.loopCount++) {
-      while (this.index < this.decoder.imageCount && !this.paused) {
+      while (this.index < this.decoder.imageCount) {
         const imageData = await this.decoderNthImageArrayBuff(this.index);
+        if (this.paused) return;
         const now = performance.now();
 
         startTime = this.framesPerformanceDelay[
@@ -169,6 +170,7 @@ export default class AnimationPlayback<
         }
 
         this.sleep(delay).then(() => {
+          if (this.paused) return;
           this.arrayBuffStackSize--;
           const pixels = new Uint8ClampedArray(imageData.pixels);
           this.render(pixels, imageData.width, imageData.height);
@@ -194,7 +196,7 @@ export default class AnimationPlayback<
 
   async updateSync() {
     // console.log('updateSync');
-    
+
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
@@ -202,9 +204,8 @@ export default class AnimationPlayback<
     for (; this.loopCount < this.option.loop!; this.loopCount++) {
       while (this.index < this.decoder.imageCount) {
         const imageData = await this.decoder.decoderNthImage(this.index);
-        console.log('---imageData---', this.index);
-        
-        const delay = this.index
+        if (this.paused) return;
+        const delay = imageData.frameIndex
           ? imageData.duration * 1000 - imageData.decodeTime
           : 0;
         if (delay > 0) {
@@ -213,7 +214,7 @@ export default class AnimationPlayback<
         const pixels = new Uint8ClampedArray(imageData.pixels);
         this.render(pixels, imageData.width, imageData.height);
         this.emit(PlayChannelType.frameIndexChange, {
-          index: this.index,
+          index: imageData.frameIndex,
           decodeTime: imageData.decodeTime,
         });
         this.index++;

@@ -91,12 +91,39 @@ export default class LibavifWorker extends WorkerEventEmitter<
             size,
             arrayBuffer
           );
+
           this.emit(AvifDecoderMessageChannel.streamingArrayBuffer, {
             byteLength,
           });
           callback<WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer>({
             byteLength,
           });
+          if (this.streamingNthImageCallback) {
+            this.libavif.updateDownloadedBytes();
+            const result = this.libavif.avifDecoderNthImage(
+              this.id,
+              this.frameIndex
+            );
+            if (result instanceof Array) {
+              this.streamingNthImageCallback(result[0], result[1].buffer);
+              this.streamingNthImageCallback = null;
+            } else {
+              this.decoderNthImageResult = result;
+            }
+          }
+          if (this.streamingNthImageCallback) {
+            this.libavif.updateDownloadedBytes();
+            const result = this.libavif.avifDecoderNthImage(
+              this.id,
+              this.frameIndex
+            );
+            if (result instanceof Array) {
+              this.streamingNthImageCallback(result[0], result[1].buffer);
+              this.streamingNthImageCallback = null;
+            } else {
+              this.decoderNthImageResult = result;
+            }
+          }
           // this.avifDecoderStreamingNthImage();
         }
       );
@@ -139,6 +166,10 @@ export default class LibavifWorker extends WorkerEventEmitter<
       this.libavif.updateDownloadedBytes();
       this.libavif.avifDecodeStreamingParse();
     });
+    if (this.libavif.streamingArrayBufferComplete) {
+      this.libavif.updateDownloadedBytes();
+      this.libavif.avifDecodeStreamingParse();
+    }
   }
 
   avifDecoderStreamingNthImage() {

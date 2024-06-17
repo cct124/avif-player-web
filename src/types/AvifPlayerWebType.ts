@@ -31,7 +31,7 @@ export interface AvifPlayerWebOptions {
    */
   initDecoderInstantly?: boolean;
   /**
-   * 实例化对象时立刻初始化解码器并解析AVIF文件，默认false
+   * 实例化对象时立刻初始化解码器并开始下载解析AVIF文件，默认false
    */
   initDecoderAvifInstantly?: boolean;
   /**

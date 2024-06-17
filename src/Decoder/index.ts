@@ -74,6 +74,7 @@ export class MainEventEmitter<
     keyof W | string,
     Set<(data: any, arrayBuffer?: ArrayBuffer) => void>
   >();
+  private callbackUniqueIds = new Map<keyof W | string, Set<string>>();
   worker: Worker;
 
   constructor(worker: Worker) {
@@ -107,8 +108,16 @@ export class MainEventEmitter<
     if (callback) {
       const callbackUniqueId = generateQuickUniqueId();
       this.onmessageOnce(callbackUniqueId, (data: any, arrayBuffer) => {
+        if (this.callbackUniqueIds.has(channel)) {
+          this.callbackUniqueIds.get(channel)!.delete(callbackUniqueId);
+        }
         callback(data, arrayBuffer);
       });
+      if (this.callbackUniqueIds.has(channel)) {
+        this.callbackUniqueIds.get(channel)!.add(callbackUniqueId);
+      } else {
+        this.callbackUniqueIds.set(channel, new Set([callbackUniqueId]));
+      }
       args[0].push(callbackUniqueId);
     }
     this.worker.postMessage(args[0], args[1] as any);
