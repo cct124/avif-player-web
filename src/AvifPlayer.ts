@@ -74,7 +74,6 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     this.checkConstructor(url, this.option);
     this.url = url;
     this.resourceSymbolId = MD5(url as string).toString();
-
     if (this.option.autoplay) {
       this.initialLibavifDecoder().then(() => {
         this.decoderParsePlay(this.url).then(() => {
@@ -126,11 +125,11 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     });
   }
 
-  pause() {
-    this.animationPlayback.pause();
+  pause(index?: number) {
+    this.animationPlayback.pause(index);
   }
 
-  async play() {
+  async play(index?: number) {
     // 解码器对象不存在时，解码器可能为初始化或者被销毁，这时重新初始化解码器
     if (!this.libavifDecoder) {
       await this.initialLibavifDecoder();
@@ -138,7 +137,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     } else if (!this.libavifDecoder.decoderParseComplete) {
       await this.decoderParsePlay(this.url);
     }
-    this.animationPlayback.play();
+    this.animationPlayback.play(index);
   }
 
   private async decoderParsePlay(url: string | ArrayBuffer) {

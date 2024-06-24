@@ -218,7 +218,6 @@ export default class Libavif {
   ): [ImageDataInfo, Uint8ClampedArray] | number {
     let result = 0;
     let t1 = performance.now();
-
     if (
       (result = this.AwsmAvifDecode._avifDecoderNthImage(
         this.decoderPtr,

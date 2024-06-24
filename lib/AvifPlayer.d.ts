@@ -30,8 +30,8 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     libavifDecoder: LibavifDecoder;
     constructor(url: string | Uint8Array, canvas: string | HTMLCanvasElement | AvifPlayerWebOptions, option?: AvifPlayerWebOptions);
     initialLibavifDecoder(reset?: boolean): Promise<LibavifDecoder>;
-    pause(): void;
-    play(): Promise<void>;
+    pause(index?: number): void;
+    play(index?: number): Promise<void>;
     private decoderParsePlay;
     private streamingArrayBuffer;
     /**

@@ -111,6 +111,8 @@ export default class AnimationPlayback<
       } else {
         throw new Error("未设置解码器对象");
       }
+    } else {
+      if (isNumeric(index)) this.index = index;
     }
   }
 
@@ -128,13 +130,12 @@ export default class AnimationPlayback<
     this.framesCancel.forEach((handle) => {
       window.cancelAnimationFrame(handle);
     });
-    // this.decoder.clearNthImageMessage();
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
     this.playing = false;
     if (this.option.async) {
       this.resetFramesStatus(this.decoder.imageCount);
       this.arrayBuffStackSize = 0;
     }
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
   }
 
   async updateAsync(diff = 0) {
