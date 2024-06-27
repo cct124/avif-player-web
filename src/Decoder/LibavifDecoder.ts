@@ -162,15 +162,18 @@ export class LibavifDecoder extends MainEventEmitter<
               sourceId,
             },
             undefined,
-            ({ imageCount, width, height }) => {
+            ({ imageCount, width, height, sourceId }) => {
               source.imageCount = imageCount;
               source.width = width;
               source.height = height;
+              this.width = width;
+              this.height = height;
               source.decoderParseComplete = true;
               this.emit(DecoderChannel.avifParse, {
                 imageCount,
                 width,
                 height,
+                sourceId,
               });
               resolve(source.decoderImageComplete);
             }
@@ -178,7 +181,7 @@ export class LibavifDecoder extends MainEventEmitter<
         } else {
           this.onmessageOnce(
             WorkerAvifDecoderMessageChannel.avifDecoderParseComplete,
-            ({ imageCount, width, height }) => {
+            ({ imageCount, width, height, sourceId }) => {
               source.imageCount = imageCount;
               source.width = width;
               source.height = height;
@@ -187,6 +190,7 @@ export class LibavifDecoder extends MainEventEmitter<
                 imageCount,
                 width,
                 height,
+                sourceId,
               });
               resolve(source.decoderImageComplete);
             }

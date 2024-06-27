@@ -83,7 +83,7 @@ export interface DecoderEventMap {
   [DecoderChannel.WorkerCommunication]: {};
 }
 
-export interface AvifParseData {
+export interface AvifParseData extends ResourceSymbol {
   /**
    * 图像宽度
    */
@@ -98,7 +98,9 @@ export interface AvifParseData {
   imageCount: number;
 }
 
-export interface AvifDecoderParseComplete extends AvifParseData {}
+export interface AvifDecoderParseComplete
+  extends AvifParseData,
+    ResourceSymbol {}
 
 export interface AvifDecoderNextImageData extends ResourceSymbol {
   /**

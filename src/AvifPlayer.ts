@@ -294,10 +294,18 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   }
 
   setCanvasSize() {
-    this.libavifDecoder.once(DecoderChannel.avifParse, ({ width, height }) => {
-      (this.option.canvas as HTMLCanvasElement).width = width;
-      (this.option.canvas as HTMLCanvasElement).height = height;
-    });
+    this.libavifDecoder.once(
+      DecoderChannel.avifParse,
+      ({ width, height, sourceId }) => {
+        (this.option.canvas as HTMLCanvasElement).width = width;
+        (this.option.canvas as HTMLCanvasElement).height = height;
+        this.emit(AvifPlayerWebChannel.parse, {
+          id: this.sources.find((source) => source.sourceId === sourceId).id,
+          width,
+          height,
+        });
+      }
+    );
   }
 
   sourcesHandle(sources: Sources) {

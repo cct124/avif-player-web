@@ -145,6 +145,7 @@ export default class Libavif {
           imageCount: this.imageCount,
           width: this.width!,
           height: this.height!,
+          sourceId: this.sourceId,
         }
       );
     }

@@ -29,7 +29,11 @@ export declare enum AvifPlayerWebChannel {
     /**
      * 解码器即将销毁
      */
-    destroy = "destroy"
+    destroy = "destroy",
+    /**
+     * 图像数据解析完成
+     */
+    parse = "parse"
 }
 export interface AvifPlayerWebEventMap {
     [AvifPlayerWebChannel.error]: Error | ErrorEvent;
@@ -38,6 +42,7 @@ export interface AvifPlayerWebEventMap {
     [AvifPlayerWebChannel.pause]: boolean;
     [AvifPlayerWebChannel.frameIndexChange]: FrameIndexChangeEvent;
     [AvifPlayerWebChannel.destroy]: {};
+    [AvifPlayerWebChannel.parse]: AvifDataParse;
 }
 export interface AnimationOption {
     /**
@@ -68,4 +73,14 @@ export interface PlayOptions extends AnimationOption {
      * 帧索引
      */
     index?: number;
+}
+export interface AvifDataParse extends AnimationOption {
+    /**
+     * 图像宽度
+     */
+    width: number;
+    /**
+     * 图像高度
+     */
+    height: number;
 }

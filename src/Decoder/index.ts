@@ -66,6 +66,15 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
 
   sources: SOURCE[] = [];
 
+  /**
+   * 图像宽度
+   */
+  width: number;
+  /**
+   * 图像高度
+   */
+  height: number;
+
   constructor() {
     super();
   }
