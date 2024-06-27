@@ -37,8 +37,41 @@ export enum AvifPlayerWebChannel {
 export interface AvifPlayerWebEventMap {
   [AvifPlayerWebChannel.error]: Error | ErrorEvent;
   [AvifPlayerWebChannel.play]: boolean;
-  [AvifPlayerWebChannel.end]: boolean;
+  [AvifPlayerWebChannel.end]: AvifPlayerSourceType;
   [AvifPlayerWebChannel.pause]: boolean;
   [AvifPlayerWebChannel.frameIndexChange]: FrameIndexChangeEvent;
   [AvifPlayerWebChannel.destroy]: {};
+}
+
+export interface AnimationOption {
+  /**
+   * 动画id
+   */
+  id: number | string;
+}
+
+export interface AvifPlayerSourceType extends AnimationOption {
+  /**
+   * 资源路径
+   */
+  url: string;
+  /**
+   * 唯一资源标识
+   */
+  sourceId: string;
+  /**
+   * 循环播放次数，0表示无限循环播放
+   */
+  loop: number;
+  /**
+   * 文件Uint8Array数据
+   */
+  arrayBuffer?: ArrayBuffer;
+}
+
+export interface PlayOptions extends AnimationOption {
+  /**
+   * 帧索引
+   */
+  index?: number;
 }

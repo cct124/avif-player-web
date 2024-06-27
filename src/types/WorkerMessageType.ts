@@ -29,10 +29,6 @@ export enum WorkerAvifDecoderMessageChannel {
    */
   avifDecoderNthImage = 7,
   /**
-   * 解码指定帧数据解码完成
-   */
-  avifDecoderNthImageResult = 8,
-  /**
    * 销毁解码器
    */
   avifDecoderDestroy = 9,
@@ -104,8 +100,7 @@ export interface AvifParseData {
 
 export interface AvifDecoderParseComplete extends AvifParseData {}
 
-export interface AvifDecoderNextImageData {
-  id: string;
+export interface AvifDecoderNextImageData extends ResourceSymbol {
   /**
    * 帧索引
    */
@@ -160,25 +155,23 @@ export interface DecoderImageData extends AvifDecoderNextImageData {
 
 export interface DecoderAvifImageData extends DecoderImageData {}
 
-export interface AvifDecoderParseData {
+export interface ResourceSymbol {
   /**
    * 唯一资源标识
    */
-  id: string;
+  sourceId: string;
 }
 
-export interface AvifDecoderNthImageData {
-  /**
-   * 唯一资源标识
-   */
-  id: string;
+export interface AvifDecoderParseData extends ResourceSymbol {}
+
+export interface AvifDecoderNthImageData extends ResourceSymbol {
   /**
    * 帧索引
    */
   frameIndex: number;
 }
 
-export interface StreamingArrayBuffer {
+export interface StreamingArrayBuffer extends ResourceSymbol {
   /**
    * 内容大小
    */
@@ -193,23 +186,19 @@ export interface StreamingArrayBufferCallBack {
   byteLength: number;
 }
 
-export interface AvifDecodeStreamingParse {
-  /**
-   * 唯一资源标识
-   */
-  id: string;
-}
+export interface DecodingComplete extends ResourceSymbol {}
+
+export interface AvifDecodeStreamingParse extends ResourceSymbol {}
 
 export interface WorkerAvifDecoderEventMap {
   [WorkerAvifDecoderMessageChannel.avifDecoderParse]: AvifDecoderParseData;
   [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
-  [WorkerAvifDecoderMessageChannel.initial]: string;
-  [WorkerAvifDecoderMessageChannel.decodingComplete]: {};
+  [WorkerAvifDecoderMessageChannel.initial]: {};
+  [WorkerAvifDecoderMessageChannel.decodingComplete]: DecodingComplete;
   [WorkerAvifDecoderMessageChannel.avifDecoderParseComplete]: AvifDecoderParseComplete;
   [WorkerAvifDecoderMessageChannel.error]: Error;
-  [WorkerAvifDecoderMessageChannel.avifDecoderImage]: { id: string };
+  [WorkerAvifDecoderMessageChannel.avifDecoderImage]: ResourceSymbol;
   [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNthImageData;
-  [WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult]: AvifDecoderNextImageData;
   [WorkerAvifDecoderMessageChannel.avifDecoderDestroy]: {};
   [WorkerAvifDecoderMessageChannel.avifDecoderConsole]: {};
   [WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer]: StreamingArrayBuffer;

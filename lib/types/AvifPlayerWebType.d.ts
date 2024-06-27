@@ -1,7 +1,28 @@
+export interface Loop {
+    /**
+     * 循环播放次数，0表示无限循环播放，默认1
+     */
+    loop?: number;
+}
+export interface Source extends Loop {
+    /**
+     * 指定唯一的动画id，切换动画时传入此id
+     */
+    id: number | string;
+    /**
+     * 资源路径
+     */
+    url?: string;
+    /**
+     * 资源数据
+     */
+    arrayBuffer?: ArrayBuffer;
+}
 /**
  * 可选配置项
  */
-export interface AvifPlayerWebOptions {
+export interface AvifPlayerWebOptions extends Loop {
+    source?: Source[];
     /**
      * 传入canvas DOM对象或id
      */
@@ -10,10 +31,6 @@ export interface AvifPlayerWebOptions {
      * 启用webgl api渲染
      */
     webgl?: boolean;
-    /**
-     * 循环播放次数，0表示无限循环播放，默认1
-     */
-    loop?: number;
     /**
      * 初始化完成后立即播放
      */

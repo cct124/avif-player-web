@@ -12,19 +12,49 @@ abstract class DecoderAbstract {
    * 进行解码操作
    * @param arrayBuffer
    */
-  abstract decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
-  abstract decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
+  abstract decoderParse(
+    sourceId: string,
+    arrayBuffer: ArrayBuffer
+  ): Promise<boolean>;
+  abstract decoderNthImage(
+    sourceId: string,
+    frameIndex: number
+  ): Promise<DecoderImageData>;
+  /**
+   * 查找资源对象
+   * @param sourceId
+   */
+  abstract findSource(sourceId: string): SOURCE;
 }
 
-export class Decoder<M> extends Observer<M> implements DecoderAbstract {
+export interface SOURCE {
+  /**
+   * 唯一资源标识
+   */
+  sourceId: string;
   /**
    * 所有帧已成功解码完成
    */
-  decoderImageComplete = false;
+  decoderImageComplete: boolean;
   /**
    * 文件解析完成
    */
-  decoderParseComplete = false;
+  decoderParseComplete: boolean;
+  /**
+   * 帧数
+   */
+  imageCount: number;
+  /**
+   * 图像宽度
+   */
+  width: number;
+  /**
+   * 图像高度
+   */
+  height: number;
+}
+
+export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   /**
    * 解码器初始化完成
    */
@@ -33,36 +63,38 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
    * 解码器版本
    */
   decoderVersion = "";
-  /**
-   * 帧数
-   */
-  imageCount = 0;
-  /**
-   * 图像宽度
-   */
-  width = 0;
-  /**
-   * 图像高度
-   */
-  height = 0;
+
+  sources: SOURCE[] = [];
 
   constructor() {
     super();
   }
 
-  decoderParse(arrayBuffer: ArrayBuffer) {
+  findSource(sourceId: string) {
+    return this.sources.find((source) => source.sourceId === sourceId);
+  }
+
+  decoderParse(sourceId: string, arrayBuffer: ArrayBuffer) {
     return Promise.resolve(true);
   }
 
-  decoderNthImage(frameIndex: number) {
+  decoderNthImage(sourceId: string, frameIndex: number) {
     return Promise.resolve({} as DecoderImageData);
   }
 
-  avifDecoderAllImage() {}
+  avifDecoderAllImage(sourceId: string) {}
 
-  clearNthImageMessage() {}
+  /**
+   * 删除所有`NthImage`解码回调
+   */
+  clearNthImageCallback() {}
 
-  streamingArrayBuffer(done: boolean, arrayBuffer: Uint8Array, size: number) {}
+  streamingArrayBuffer(
+    sourceId: string,
+    done: boolean,
+    arrayBuffer: Uint8Array,
+    size: number
+  ) {}
 }
 
 export class MainEventEmitter<
@@ -202,11 +234,27 @@ export class MainEventEmitter<
     };
   }
 
-  clearOnmessageAll<T extends keyof W>(channel?: T) {
+  clearOnmessageAll<T extends keyof W>(channel?: T | string) {
     if (channel) {
       this.workerListeners.delete(channel);
     } else {
       this.workerListeners.clear();
+    }
+  }
+
+  clearCallback<T extends keyof W>(channel?: T) {
+    if (channel) {
+      if (this.callbackUniqueIds.has(channel)) {
+        for (const uniqueId of this.callbackUniqueIds.get(channel)) {
+          this.clearOnmessageAll(uniqueId);
+        }
+      }
+    } else {
+      this.callbackUniqueIds.forEach((uniqueIds) => {
+        for (const uniqueId of uniqueIds) {
+          this.clearOnmessageAll(uniqueId);
+        }
+      });
     }
   }
 }

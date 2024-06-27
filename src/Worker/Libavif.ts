@@ -1,17 +1,12 @@
 import {
   AvifDecoderMessageChannel,
-  WorkerAvifDecoderEventMap,
   WorkerAvifDecoderMessageChannel,
 } from "../types/WorkerMessageType";
-import { WorkerEventEmitter } from "../Observer/index";
-import { AVIF_RESULT, AvifImageCache, AvifImageTiming } from "./type";
+import { AVIF_RESULT, AvifImageTiming } from "./type";
 import LibavifWorker from "./Libavif.worker";
 
-const AVIF_RGB_IMAGE_STRUCT_SIZE = 64;
-const AVIF_RGB_IMAGE_TIMING_STRUCT_SIZE = 40;
-
 export interface ImageDataInfo {
-  id: string;
+  sourceId: string;
   timescale: number;
   pts: number;
   ptsInTimescales: number;
@@ -25,6 +20,7 @@ export interface ImageDataInfo {
 }
 
 export default class Libavif {
+  sourceId: string;
   AwsmAvifDecode: any;
   decoderPtr?: number;
   bufferPtr?: number;
@@ -33,7 +29,7 @@ export default class Libavif {
   avifImageCachePtr?: number;
   index = 0;
   imageCount = 0;
-  decoderNthImage!: (id: string, frameIndex: number) => void;
+  decoderNthImage!: (sourceId: string, frameIndex: number) => void;
   rbgPtr?: number;
   decodeStats: number[] = [];
   libavifWorker: LibavifWorker;
@@ -57,7 +53,13 @@ export default class Libavif {
    * @param arrayBuffer
    * @returns
    */
-  streamingArrayBuffer(done: boolean, size: number, arrayBuffer: ArrayBuffer) {
+  streamingArrayBuffer(
+    sourceId: string,
+    done: boolean,
+    size: number,
+    arrayBuffer: ArrayBuffer
+  ) {
+    if (!this.sourceId) this.sourceId = sourceId;
     this.streamingArrayBufferDone = done;
     if (this.streamingArrayBufferDone) {
       this.streamingArrayBufferComplete = true;
@@ -148,8 +150,9 @@ export default class Libavif {
     }
   }
 
-  avifDecoderParse(arrayBuffer: ArrayBuffer) {
+  avifDecoderParse(sourceId: string, arrayBuffer: ArrayBuffer) {
     try {
+      this.sourceId = sourceId;
       const bufferSize = arrayBuffer.byteLength;
       this.bufferPtr = this.AwsmAvifDecode._malloc(bufferSize);
       if (!this.bufferPtr) {
@@ -204,7 +207,7 @@ export default class Libavif {
     }
   }
 
-  avifDecoderNextImage(id: string, frameIndex: number) {
+  avifDecoderNextImage(sourceId: string, frameIndex: number) {
     const result = this.AwsmAvifDecode._avifDecoderNthImage(
       this.decoderPtr,
       frameIndex
@@ -213,7 +216,7 @@ export default class Libavif {
   }
 
   avifDecoderNthImage(
-    id: string,
+    sourceId: string,
     frameIndex: number
   ): [ImageDataInfo, Uint8ClampedArray] | number {
     let result = 0;
@@ -267,13 +270,13 @@ export default class Libavif {
       if (frameIndex === this.imageCount) {
         this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.decodingComplete,
-          {}
+          { sourceId }
         );
       }
 
       return [
         {
-          id,
+          sourceId,
           timescale: timing.timescale,
           pts: timing.pts,
           ptsInTimescales: timing.ptsInTimescales,
@@ -292,7 +295,7 @@ export default class Libavif {
     return result;
   }
 
-  avifDecoderImage(id: string) {
+  avifDecoderImage(sourceId: string) {
     try {
       let result = 0;
       let frameIndex = 0;
@@ -351,7 +354,7 @@ export default class Libavif {
         this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
           {
-            id,
+            sourceId,
             timescale: timing.timescale,
             pts: timing.pts,
             ptsInTimescales: timing.ptsInTimescales,
@@ -374,7 +377,7 @@ export default class Libavif {
       if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING) {
         this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.decodingComplete,
-          {}
+          { sourceId }
         );
       }
     } catch (error) {

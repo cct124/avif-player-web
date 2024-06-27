@@ -5,10 +5,19 @@ declare abstract class DecoderAbstract {
      * 进行解码操作
      * @param arrayBuffer
      */
-    abstract decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
-    abstract decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
+    abstract decoderParse(sourceId: string, arrayBuffer: ArrayBuffer): Promise<boolean>;
+    abstract decoderNthImage(sourceId: string, frameIndex: number): Promise<DecoderImageData>;
+    /**
+     * 查找资源对象
+     * @param sourceId
+     */
+    abstract findSource(sourceId: string): SOURCE;
 }
-export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
+export interface SOURCE {
+    /**
+     * 唯一资源标识
+     */
+    sourceId: string;
     /**
      * 所有帧已成功解码完成
      */
@@ -17,14 +26,6 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      * 文件解析完成
      */
     decoderParseComplete: boolean;
-    /**
-     * 解码器初始化完成
-     */
-    decoderInitial: boolean;
-    /**
-     * 解码器版本
-     */
-    decoderVersion: string;
     /**
      * 帧数
      */
@@ -37,12 +38,27 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      * 图像高度
      */
     height: number;
+}
+export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
+    /**
+     * 解码器初始化完成
+     */
+    decoderInitial: boolean;
+    /**
+     * 解码器版本
+     */
+    decoderVersion: string;
+    sources: SOURCE[];
     constructor();
-    decoderParse(arrayBuffer: ArrayBuffer): Promise<boolean>;
-    decoderNthImage(frameIndex: number): Promise<DecoderImageData>;
-    avifDecoderAllImage(): void;
-    clearNthImageMessage(): void;
-    streamingArrayBuffer(done: boolean, arrayBuffer: Uint8Array, size: number): void;
+    findSource(sourceId: string): SOURCE;
+    decoderParse(sourceId: string, arrayBuffer: ArrayBuffer): Promise<boolean>;
+    decoderNthImage(sourceId: string, frameIndex: number): Promise<DecoderImageData>;
+    avifDecoderAllImage(sourceId: string): void;
+    /**
+     * 删除所有`NthImage`解码回调
+     */
+    clearNthImageCallback(): void;
+    streamingArrayBuffer(sourceId: string, done: boolean, arrayBuffer: Uint8Array, size: number): void;
 }
 export declare class MainEventEmitter<W, C, M extends DecoderEventMap> extends Decoder<M> {
     private workerListeners;
@@ -79,6 +95,7 @@ export declare class MainEventEmitter<W, C, M extends DecoderEventMap> extends D
     onmessage<T extends keyof W>(channel: T | string, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
     private listenOnmessage;
     setDecoder(worker: Worker): void;
-    clearOnmessageAll<T extends keyof W>(channel?: T): void;
+    clearOnmessageAll<T extends keyof W>(channel?: T | string): void;
+    clearCallback<T extends keyof W>(channel?: T): void;
 }
 export {};
