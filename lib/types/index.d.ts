@@ -37,8 +37,8 @@ export declare enum AvifPlayerWebChannel {
 }
 export interface AvifPlayerWebEventMap {
     [AvifPlayerWebChannel.error]: Error | ErrorEvent;
-    [AvifPlayerWebChannel.play]: boolean;
-    [AvifPlayerWebChannel.end]: AvifPlayerSourceType;
+    [AvifPlayerWebChannel.play]: PlayData;
+    [AvifPlayerWebChannel.end]: PlayData;
     [AvifPlayerWebChannel.pause]: boolean;
     [AvifPlayerWebChannel.frameIndexChange]: FrameIndexChangeEvent;
     [AvifPlayerWebChannel.destroy]: {};
@@ -49,6 +49,8 @@ export interface AnimationOption {
      * 动画id
      */
     id: number | string;
+}
+export interface PlayData extends AnimationOption {
 }
 export interface AvifPlayerSourceType extends AnimationOption {
     /**

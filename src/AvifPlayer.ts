@@ -69,7 +69,9 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     if (this.option.autoplay) {
       this.initialLibavifDecoder().then(() => {
         this.decoderParsePlay().then(() => {
-          this.animationPlayback.play(this.playSourceId);
+          this.animationPlayback.play(
+            this.sourceIDfindSource(this.playSourceId)
+          );
         });
       });
     } else if (this.option.initDecoderInstantly) {
@@ -141,7 +143,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     const source = this.sources.find((source) => source.id === id);
     if (source) {
       this.playSourceId = source.sourceId;
-      this.animationPlayback.setPlayId(this.playSourceId);
+      this.animationPlayback.switchPlayId(source);
     } else {
       throw new Error(`id: ${id}不存在`);
     }
@@ -165,7 +167,10 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     ) {
       await this.decoderParsePlay();
     }
-    this.animationPlayback.play(this.playSourceId, index);
+    this.animationPlayback.play(
+      this.sourceIDfindSource(this.playSourceId),
+      index
+    );
   }
 
   private async decoderParsePlay() {
@@ -348,6 +353,19 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     throw new Error(
       "参数url类型错误，请传入Avif图像Url、URL数组或Uint8Array、Uint8Array数组"
     );
+  }
+
+  /**
+   * 获取 source
+   * @param id
+   * @returns
+   */
+  animationIDfindSource(id: string | number) {
+    return this.sources.find((source) => source.id === id);
+  }
+
+  sourceIDfindSource(sid: string) {
+    return this.sources.find((source) => source.sourceId === sid);
   }
 
   /**

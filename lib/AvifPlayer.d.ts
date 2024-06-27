@@ -57,6 +57,13 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     setCanvasSize(): void;
     sourcesHandle(sources: Sources): AvifPlayerSourceType[];
     /**
+     * 获取 source
+     * @param id
+     * @returns
+     */
+    animationIDfindSource(id: string | number): AvifPlayerSourceType;
+    sourceIDfindSource(sid: string): AvifPlayerSourceType;
+    /**
      * 销毁解码器`Worker`线程
      *
      * 播放将暂停帧索引重置为0

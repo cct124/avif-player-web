@@ -1,6 +1,7 @@
 import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
+import { AvifPlayerSourceType } from "../types";
 import { DecoderImageData, DecoderEventMap } from "../types/WorkerMessageType";
 import { PlayEventMap, PlayOptions } from "./type";
 export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> extends Observer<PlayEventMap> {
@@ -43,16 +44,17 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
     setDecoder(decoder: D): void;
     initRender(): void;
-    play(sourceId: string, index?: number): void;
+    play(avifPlayerSource: AvifPlayerSourceType, index?: number): void;
     resetFramesStatus(imageCount: number): void;
     /**
      * 暂停播放
      */
-    pause(sourceId: string, index?: number): void;
+    pause(sid: string, index?: number): void;
     stopNthImageCallback(): void;
-    setPlayId(sourceId: string): void;
+    setPlayId(source: AvifPlayerSourceType): void;
+    switchPlayId(source: AvifPlayerSourceType): void;
     updateAsync(sourceId: string, diff?: number): Promise<void>;
-    checkPlayEnd(index: number, imageCount: number): void;
+    checkPlayEnd(index: number, id: string | number): void;
     updateSync(sourceId: string): Promise<void>;
     decoderNthImageArrayBuff(sourceId: string, index: number): Promise<DecoderImageData>;
     updateArrayBuff(): Promise<boolean>;

@@ -1,7 +1,7 @@
 import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
-import { AvifPlayerWebChannel } from "../types";
+import { AvifPlayerSourceType, AvifPlayerWebChannel } from "../types";
 import {
   DecoderImageData,
   DecoderChannel,
@@ -102,11 +102,11 @@ export default class AnimationPlayback<
     }
   }
 
-  play(sourceId: string, index?: number) {
-    this.setPlayId(sourceId);
+  play(avifPlayerSource: AvifPlayerSourceType, index?: number) {
+    this.setPlayId(avifPlayerSource);
     if (!this.playing) {
       if (this.decoder) {
-        const source = this.decoder.findSource(sourceId);
+        const source = this.decoder.findSource(avifPlayerSource.sourceId);
         if (isNumeric(index)) this.index = index;
         if (this.option.async) {
           this.resetFramesStatus(source.imageCount);
@@ -115,7 +115,7 @@ export default class AnimationPlayback<
             this.framesPerformanceDelay[this.frameIndex] = performance.now();
           }
         }
-        this.update(sourceId, this.paused ? this.pts : 0);
+        this.update(avifPlayerSource.sourceId, this.paused ? this.pts : 0);
       } else {
         throw new Error("未设置解码器对象");
       }
@@ -131,14 +131,14 @@ export default class AnimationPlayback<
   /**
    * 暂停播放
    */
-  pause(sourceId: string, index?: number) {
+  pause(sid: string, index?: number) {
     if (!this.playing) return;
     this.paused = true;
     if (isNumeric(index)) this.index = index;
     this.stopNthImageCallback();
     this.playing = false;
     if (this.option.async) {
-      const source = this.decoder.findSource(sourceId);
+      const source = this.decoder.findSource(sid);
       this.resetFramesStatus(source.imageCount);
       this.arrayBuffStackSize = 0;
     }
@@ -152,27 +152,34 @@ export default class AnimationPlayback<
     });
   }
 
-  setPlayId(sourceId: string) {
-    if (sourceId !== this.playSourceId) {
-      this.stopNthImageCallback();
-      this.playSourceId = sourceId;
-      const source = this.AvifPlayerWeb.sources.find(
-        (source) => source.sourceId === sourceId
-      );
+  setPlayId(source: AvifPlayerSourceType) {
+    if (source.sourceId !== this.playSourceId) {
+      this.playSourceId = source.sourceId;
       this.loop = source.loop === 0 ? Infinity : source.loop;
-      this.loopCount = 0;
-      this.paused = false;
-      this.playing = false;
-      this.arrayBuffStackSize = 0;
     }
+  }
+
+  switchPlayId(source: AvifPlayerSourceType) {
+    this.stopNthImageCallback();
+    this.playSourceId = source.sourceId;
+    this.loop = source.loop === 0 ? Infinity : source.loop;
+    this.loopCount = 0;
+    this.paused = false;
+    this.playing = false;
+    this.arrayBuffStackSize = 0;
   }
 
   async updateAsync(sourceId: string, diff = 0) {
     const source = this.decoder.findSource(sourceId);
+    const avifPlayerSource = this.AvifPlayerWeb.sourceIDfindSource(
+      this.playSourceId
+    );
     this.lastFrameIndex = source.imageCount - 1;
     this.paused = false;
     this.playing = true;
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, {
+      id: avifPlayerSource.id,
+    });
     let prevFrameTime = (this.lastTimestamp = performance.now() - diff);
     for (; this.loopCount < this.loop!; this.loopCount++) {
       while (this.index < source.imageCount) {
@@ -212,7 +219,7 @@ export default class AnimationPlayback<
             index: imageData.frameIndex,
             decodeTime: imageData.decodeTime,
           });
-          this.checkPlayEnd(imageData.frameIndex, source.imageCount);
+          this.checkPlayEnd(imageData.frameIndex, avifPlayerSource.id);
         });
       }
 
@@ -221,25 +228,27 @@ export default class AnimationPlayback<
     }
   }
 
-  checkPlayEnd(index: number, imageCount: number) {
+  checkPlayEnd(index: number, id: string | number) {
     if (index === this.lastFrameIndex && this.loopCount === this.loop) {
       this.index = 0;
       this.loopCount = 0;
       this.playing = false;
-      this.AvifPlayerWeb.emit(
-        AvifPlayerWebChannel.end,
-        this.AvifPlayerWeb.sources.find(
-          (source) => source.sourceId === this.playSourceId
-        )
-      );
+      this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, {
+        id,
+      });
     }
   }
 
   async updateSync(sourceId: string) {
     const source = this.decoder.findSource(sourceId);
+    const avifPlayerSource = this.AvifPlayerWeb.sourceIDfindSource(
+      this.playSourceId
+    );
     this.paused = false;
     this.playing = true;
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, {
+      id: avifPlayerSource.id,
+    });
     this.lastTimestamp = performance.now();
 
     for (; this.loopCount < this.loop!; this.loopCount++) {
@@ -267,12 +276,9 @@ export default class AnimationPlayback<
     }
     this.index = 0;
     this.loopCount = 0;
-    this.AvifPlayerWeb.emit(
-      AvifPlayerWebChannel.end,
-      this.AvifPlayerWeb.sources.find(
-        (source) => source.sourceId === this.playSourceId
-      )
-    );
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, {
+      id: avifPlayerSource.id,
+    });
     this.playing = false;
   }
 
