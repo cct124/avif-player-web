@@ -48,6 +48,32 @@ avifPlayerWeb.on(
     console.log(data.index);
   }
 );
+
+// 播放多个动画
+const avifPlayerWeb = new AvifPlayerWeb.AvifPlayer({
+  source: [
+    // 默认播放数组的第一个
+    {
+      // 指定一个id
+      id: 0,
+      // AVIF图像路径
+      url: normal,
+      // 循环播放
+      loop: 0,
+    },
+    { id: 1, url: downgrade },
+    { id: 2, url: upgrade },
+  ],
+  canvas: canvas.value,
+  autoplay: true,
+});
+
+// 切换播放的动画，播放id为1的图像动画
+avifPlayerWeb.play({
+  id: 1,
+  // 从这个动画的第一帧开始播放
+  index: 0,
+});
 ```
 
 ### 显示单帧的图像文件

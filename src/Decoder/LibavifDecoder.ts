@@ -1,3 +1,4 @@
+import { AvifPlayerSourceType } from "../types";
 import {
   WorkerAvifDecoderMessageChannel,
   WorkerAvifDecoderEventMap,
@@ -15,34 +16,46 @@ export class LibavifDecoder extends MainEventEmitter<
   DecoderEventMap
 > {
   /**
-   * 唯一资源标识
-   */
-  id: string;
-  /**
    * 启用流数据解码
    */
   streaming = true;
-  decoderNthImage: (frameIndex: number) => Promise<DecoderImageData>;
+  decoderNthImage: (
+    sourceId: string,
+    frameIndex: number
+  ) => Promise<DecoderImageData>;
 
   /**
    *
    * @param url worker连接
-   * @param id 唯一资源标识
+   * @param sourceId 唯一资源标识
    */
-  constructor(worker: Worker, id: string, streaming?: boolean) {
+  constructor(
+    worker: Worker,
+    sources: AvifPlayerSourceType[],
+    streaming?: boolean
+  ) {
     super(worker);
     this.streaming = streaming;
-    this.id = id;
+    this.sources = sources.map(({ sourceId }) => ({
+      sourceId,
+      decoderImageComplete: false,
+      decoderParseComplete: false,
+      imageCount: 0,
+      width: 0,
+      height: 0,
+    }));
     this.decoderNthImage = this.streaming
       ? this.decoderStreamingNthImage
       : this.decoderResultNthImage;
-    this.onmessage(WorkerAvifDecoderMessageChannel.initial, (version) => {
+    this.onmessage(WorkerAvifDecoderMessageChannel.initial, () => {
       this.decoderInitial = true;
-      this.decoderVersion = version;
     });
-    this.onmessage(WorkerAvifDecoderMessageChannel.decodingComplete, () => {
-      this.decoderImageComplete = true;
-    });
+    this.onmessage(
+      WorkerAvifDecoderMessageChannel.decodingComplete,
+      ({ sourceId }) => {
+        this.findSource(sourceId).decoderImageComplete = true;
+      }
+    );
     this.onmessage(WorkerAvifDecoderMessageChannel.error, (error) => {
       this.emit(DecoderChannel.error, error);
     });
@@ -59,9 +72,10 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param arrayBuffer
    * @returns
    */
-  async decoderParse(arrayBuffer?: ArrayBuffer) {
-    if (!this.decoderParseComplete) {
-      await this.avifDecoderParse(arrayBuffer);
+  async decoderParse(sourceId: string, arrayBuffer?: ArrayBuffer) {
+    const source = this.findSource(sourceId);
+    if (!source.decoderParseComplete) {
+      await this.avifDecoderParse(sourceId, arrayBuffer);
       return true;
     } else {
       return true;
@@ -75,7 +89,7 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param frameIndex
    * @returns
    */
-  decoderStreamingNthImage(frameIndex: number) {
+  decoderStreamingNthImage(sourceId: string, frameIndex: number) {
     // console.log("---frameIndex---", frameIndex);
 
     return new Promise<DecoderImageData>((resolve, reject) => {
@@ -83,7 +97,7 @@ export class LibavifDecoder extends MainEventEmitter<
         this.postMessage<WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage>(
           WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage,
           {
-            id: this.id,
+            sourceId,
             frameIndex,
           },
           undefined,
@@ -108,13 +122,13 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param frameIndex
    * @returns
    */
-  decoderResultNthImage(frameIndex: number) {
+  decoderResultNthImage(sourceId: string, frameIndex: number) {
     return new Promise<DecoderImageData>((resolve, reject) => {
       try {
         this.postMessage<WorkerAvifDecoderMessageChannel.avifDecoderNthImage>(
           WorkerAvifDecoderMessageChannel.avifDecoderNthImage,
           {
-            id: this.id,
+            sourceId,
             frameIndex,
           },
           undefined,
@@ -137,43 +151,44 @@ export class LibavifDecoder extends MainEventEmitter<
    * 发送图像数据到Worker进行解码
    * @param arrayBuffer
    */
-  avifDecoderParse(arrayBuffer?: ArrayBuffer) {
+  avifDecoderParse(sourceId: string, arrayBuffer?: ArrayBuffer) {
     return new Promise((resolve, reject) => {
       try {
+        const source = this.findSource(sourceId);
         if (this.streaming) {
           this.postMessage<WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse>(
             WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse,
             {
-              id: this.id,
+              sourceId,
             },
             undefined,
             ({ imageCount, width, height }) => {
-              this.imageCount = imageCount;
-              this.width = width;
-              this.height = height;
-              this.decoderParseComplete = true;
+              source.imageCount = imageCount;
+              source.width = width;
+              source.height = height;
+              source.decoderParseComplete = true;
               this.emit(DecoderChannel.avifParse, {
                 imageCount,
                 width,
                 height,
               });
-              resolve(this.decoderImageComplete);
+              resolve(source.decoderImageComplete);
             }
           );
         } else {
           this.onmessageOnce(
             WorkerAvifDecoderMessageChannel.avifDecoderParseComplete,
             ({ imageCount, width, height }) => {
-              this.imageCount = imageCount;
-              this.width = width;
-              this.height = height;
-              this.decoderParseComplete = true;
+              source.imageCount = imageCount;
+              source.width = width;
+              source.height = height;
+              source.decoderParseComplete = true;
               this.emit(DecoderChannel.avifParse, {
                 imageCount,
                 width,
                 height,
               });
-              resolve(this.decoderImageComplete);
+              resolve(source.decoderImageComplete);
             }
           );
           this.onmessageOnce(WorkerAvifDecoderMessageChannel.error, (error) => {
@@ -183,7 +198,7 @@ export class LibavifDecoder extends MainEventEmitter<
             this.postMessage(
               WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse,
               {
-                id: this.id,
+                sourceId,
               },
               null,
               (data) => {
@@ -194,7 +209,7 @@ export class LibavifDecoder extends MainEventEmitter<
             this.postMessage(
               WorkerAvifDecoderMessageChannel.avifDecoderParse,
               {
-                id: this.id,
+                sourceId,
               },
               arrayBuffer
             );
@@ -206,9 +221,9 @@ export class LibavifDecoder extends MainEventEmitter<
     });
   }
 
-  avifDecoderAllImage() {
+  avifDecoderAllImage(sourceId: string) {
     this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderImage, {
-      id: this.id,
+      sourceId,
     });
     this.onmessageOnce(
       WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
@@ -218,10 +233,11 @@ export class LibavifDecoder extends MainEventEmitter<
     );
   }
 
-  clearNthImageMessage() {
-    this.clearOnmessageAll(
-      WorkerAvifDecoderMessageChannel.avifDecoderNthImageResult
+  clearNthImageCallback() {
+    this.clearCallback(
+      WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage
     );
+    this.clearCallback(WorkerAvifDecoderMessageChannel.avifDecoderNthImage);
   }
 
   /**
@@ -235,12 +251,18 @@ export class LibavifDecoder extends MainEventEmitter<
     this.emit(DecoderChannel.destroy, {});
   }
 
-  streamingArrayBuffer(done: boolean, arrayBuffer: Uint8Array, size: number) {
+  streamingArrayBuffer(
+    sourceId: string,
+    done: boolean,
+    arrayBuffer: Uint8Array,
+    size: number
+  ) {
     return new Promise<number>((resolve, reject) => {
       try {
         this.postMessage<WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer>(
           WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer,
           {
+            sourceId,
             size,
             done,
           },

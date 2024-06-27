@@ -24,7 +24,7 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     pts: number;
     frameIndex: number;
     framesPerformanceDelay: number[];
-    update: (diff: number) => void;
+    update: (sourceId: string, diff: number) => void;
     /**
      * 当前调用栈缓冲大小
      */
@@ -33,19 +33,26 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
      * 缓冲区数组长度，这个值是根据 `option.arrayBuffSize`配置的缓冲区大小计算的，不小于1
      */
     arrayBuffLength: number;
+    /**
+     * 当前正在播放的资源id
+     */
+    playSourceId: string;
+    loop: number;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
     setDecoder(decoder: D): void;
     initRender(): void;
-    play(index?: number): void;
+    play(sourceId: string, index?: number): void;
     resetFramesStatus(imageCount: number): void;
     /**
      * 暂停播放
      */
-    pause(index?: number): void;
-    updateAsync(diff?: number): Promise<void>;
-    updateSync(): Promise<void>;
-    decoderNthImageArrayBuff(index: number): Promise<DecoderImageData>;
+    pause(sourceId: string, index?: number): void;
+    stopNthImageCallback(): void;
+    setPlayId(sourceId: string): void;
+    updateAsync(sourceId: string, diff?: number): Promise<void>;
+    updateSync(sourceId: string): Promise<void>;
+    decoderNthImageArrayBuff(sourceId: string, index: number): Promise<DecoderImageData>;
     updateArrayBuff(): Promise<boolean>;
     awaitNextFrameDecode(decoder: D): Promise<unknown>;
     webglInit(gl: WebGLRenderingContext): void;

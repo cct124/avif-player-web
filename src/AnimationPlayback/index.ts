@@ -33,7 +33,7 @@ export default class AnimationPlayback<
   pts = 0;
   frameIndex = 0;
   framesPerformanceDelay: number[];
-  update: (diff: number) => void;
+  update: (sourceId: string, diff: number) => void;
   /**
    * 当前调用栈缓冲大小
    */
@@ -42,6 +42,11 @@ export default class AnimationPlayback<
    * 缓冲区数组长度，这个值是根据 `option.arrayBuffSize`配置的缓冲区大小计算的，不小于1
    */
   arrayBuffLength = 1;
+  /**
+   * 当前正在播放的资源id
+   */
+  playSourceId: string;
+  loop = 1;
 
   render!: (
     arrayBuffer: Uint8ClampedArray,
@@ -64,6 +69,7 @@ export default class AnimationPlayback<
     });
     this.update = this.option.async ? this.updateAsync : this.updateSync;
     if (this.option.loop === 0) this.option.loop = Infinity;
+    this.loop = this.option.loop;
     this.canvas = canvas;
     this.setDecoder(decoder);
     this.on(PlayChannelType.frameIndexChange, (data) => {
@@ -96,18 +102,20 @@ export default class AnimationPlayback<
     }
   }
 
-  play(index?: number) {
+  play(sourceId: string, index?: number) {
+    this.setPlayId(sourceId);
     if (!this.playing) {
       if (this.decoder) {
+        const source = this.decoder.findSource(sourceId);
         if (isNumeric(index)) this.index = index;
         if (this.option.async) {
-          this.resetFramesStatus(this.decoder.imageCount);
+          this.resetFramesStatus(source.imageCount);
           if (this.paused) {
             this.index = this.frameIndex + 1;
             this.framesPerformanceDelay[this.frameIndex] = performance.now();
           }
         }
-        this.update(this.paused ? this.pts : 0);
+        this.update(sourceId, this.paused ? this.pts : 0);
       } else {
         throw new Error("未设置解码器对象");
       }
@@ -123,31 +131,53 @@ export default class AnimationPlayback<
   /**
    * 暂停播放
    */
-  pause(index?: number) {
+  pause(sourceId: string, index?: number) {
+    this.setPlayId(sourceId);
     if (!this.playing) return;
     this.paused = true;
     if (isNumeric(index)) this.index = index;
-    this.framesCancel.forEach((handle) => {
-      window.cancelAnimationFrame(handle);
-    });
+    this.stopNthImageCallback();
     this.playing = false;
     if (this.option.async) {
-      this.resetFramesStatus(this.decoder.imageCount);
+      const source = this.decoder.findSource(sourceId);
+      this.resetFramesStatus(source.imageCount);
       this.arrayBuffStackSize = 0;
     }
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.pause, true);
   }
 
-  async updateAsync(diff = 0) {
+  stopNthImageCallback() {
+    this.decoder.clearNthImageCallback();
+    this.framesCancel.forEach((handle) => {
+      window.cancelAnimationFrame(handle);
+    });
+  }
+
+  setPlayId(sourceId: string) {
+    if (sourceId !== this.playSourceId) {
+      this.playSourceId = sourceId;
+      const source = this.AvifPlayerWeb.sources.find(
+        (source) => source.sourceId === sourceId
+      );
+      this.loop = source.loop === 0 ? Infinity : source.loop;
+    }
+  }
+
+  async updateAsync(sourceId: string, diff = 0) {
+    const source = this.decoder.findSource(sourceId);
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
     let prevFrameTime = (this.lastTimestamp = performance.now() - diff);
 
-    for (; this.loopCount < this.option.loop!; this.loopCount++) {
-      while (this.index < this.decoder.imageCount) {
-        const imageData = await this.decoderNthImageArrayBuff(this.index);
+    for (; this.loopCount < this.loop!; this.loopCount++) {
+      while (this.index < source.imageCount) {
+        const imageData = await this.decoderNthImageArrayBuff(
+          sourceId,
+          this.index
+        );
         if (this.paused) return;
+
         const now = performance.now();
 
         prevFrameTime =
@@ -187,21 +217,28 @@ export default class AnimationPlayback<
     }
     this.index = 0;
     this.loopCount = 0;
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, true);
+    this.AvifPlayerWeb.emit(
+      AvifPlayerWebChannel.end,
+      this.AvifPlayerWeb.sources.find(
+        (source) => source.sourceId === this.playSourceId
+      )
+    );
     this.playing = false;
   }
 
-  async updateSync() {
-    // console.log('updateSync');
-
+  async updateSync(sourceId: string) {
+    const source = this.decoder.findSource(sourceId);
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
     this.lastTimestamp = performance.now();
-    for (; this.loopCount < this.option.loop!; this.loopCount++) {
-      while (this.index < this.decoder.imageCount) {
-        const imageData = await this.decoder.decoderNthImage(this.index);
-        if (this.paused) return;
+
+    for (; this.loopCount < this.loop!; this.loopCount++) {
+      while (this.index < source.imageCount) {
+        const imageData = await this.decoder.decoderNthImage(
+          sourceId,
+          this.index
+        );
         const delay = imageData.frameIndex
           ? imageData.duration * 1000 - imageData.decodeTime
           : 0;
@@ -209,6 +246,7 @@ export default class AnimationPlayback<
           await this.sleep(delay);
         }
         const pixels = new Uint8ClampedArray(imageData.pixels);
+
         this.render(pixels, imageData.width, imageData.height);
         this.emit(PlayChannelType.frameIndexChange, {
           index: imageData.frameIndex,
@@ -220,18 +258,23 @@ export default class AnimationPlayback<
     }
     this.index = 0;
     this.loopCount = 0;
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, true);
+    this.AvifPlayerWeb.emit(
+      AvifPlayerWebChannel.end,
+      this.AvifPlayerWeb.sources.find(
+        (source) => source.sourceId === this.playSourceId
+      )
+    );
     this.playing = false;
   }
 
-  async decoderNthImageArrayBuff(index: number) {
+  async decoderNthImageArrayBuff(sourceId: string, index: number) {
     if (this.arrayBuffStackSize <= this.arrayBuffLength) {
-      const imageData = await this.decoder.decoderNthImage(index);
+      const imageData = await this.decoder.decoderNthImage(sourceId, index);
       this.arrayBuffStackSize++;
       return imageData;
     }
     await this.updateArrayBuff();
-    const imageData = await this.decoder.decoderNthImage(index);
+    const imageData = await this.decoder.decoderNthImage(sourceId, index);
     this.arrayBuffStackSize++;
     return imageData;
   }
@@ -349,7 +392,6 @@ export default class AnimationPlayback<
     width: number,
     height: number
   ) {
-    this.ctx2d!.clearRect(0, 0, width, height);
     // 使用转换后的 clampedPixels 创建 ImageData 对象
     const imageData = new ImageData(uint8ClampedArray, width, height);
     // 将 ImageData 对象绘制到 Canvas 上
@@ -381,7 +423,9 @@ export default class AnimationPlayback<
   }
 
   destroy() {
-    this.pause();
+    this.AvifPlayerWeb.sources.forEach((source) => {
+      this.pause(source.sourceId);
+    });
     this.index = 0;
     this.frameIndex = 0;
   }

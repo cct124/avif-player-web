@@ -35,16 +35,6 @@ export enum AVIF_RESULT {
   AVIF_RESULT_NO_AV1_ITEMS_FOUND = AVIF_RESULT_MISSING_IMAGE_ITEM,
 }
 
-export interface AvifImageCache {
-  // 方法声明
-  cacheImage(id: string, image: number, index: number): void;
-  initializeCacheEntry(id: string, count: number): void;
-  getImages(id: string, count: number): number | null;
-  getImage(id: string, index: number): number | null;
-  clearCacheForId(id: string): void;
-  clearCache(): void;
-}
-
 export interface AvifImageTiming {
   /**
    * 媒体的时间刻度（Hz）
