@@ -140,12 +140,8 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   switch(id: number | string, index: number = 0) {
     const source = this.sources.find((source) => source.id === id);
     if (source) {
-      this.animationPlayback.stopNthImageCallback();
-      this.animationPlayback.loop = 0;
-      this.animationPlayback.loopCount = 0;
-      this.animationPlayback.paused = false;
-      this.animationPlayback.playing = false;
       this.playSourceId = source.sourceId;
+      this.animationPlayback.setPlayId(this.playSourceId);
     } else {
       throw new Error(`id: ${id}不存在`);
     }
