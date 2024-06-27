@@ -49,6 +49,14 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      */
     decoderVersion: string;
     sources: SOURCE[];
+    /**
+     * 图像宽度
+     */
+    width: number;
+    /**
+     * 图像高度
+     */
+    height: number;
     constructor();
     findSource(sourceId: string): SOURCE;
     decoderParse(sourceId: string, arrayBuffer: ArrayBuffer): Promise<boolean>;

@@ -58,6 +58,7 @@ export default class LibavifWorker extends WorkerEventEmitter<
                   imageCount: libavif.imageCount,
                   width: libavif.width!,
                   height: libavif.height!,
+                  sourceId,
                 }
               );
             }
