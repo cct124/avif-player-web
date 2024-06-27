@@ -156,7 +156,6 @@ export default class LibavifWorker extends WorkerEventEmitter<
       );
       this.postMessage(WorkerAvifDecoderMessageChannel.initial, {});
     } catch (error) {
-      console.log(error);
       throw error;
     }
   }

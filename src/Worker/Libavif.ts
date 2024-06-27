@@ -382,8 +382,6 @@ export default class Libavif {
         );
       }
     } catch (error) {
-      console.log(error);
-
       // 处理错误
       this.error(new Error(`${error}`));
     } finally {

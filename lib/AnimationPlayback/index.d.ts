@@ -38,6 +38,7 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
      */
     playSourceId: string;
     loop: number;
+    lastFrameIndex: number;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
     setDecoder(decoder: D): void;
@@ -51,6 +52,7 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     stopNthImageCallback(): void;
     setPlayId(sourceId: string): void;
     updateAsync(sourceId: string, diff?: number): Promise<void>;
+    checkPlayEnd(index: number, imageCount: number): void;
     updateSync(sourceId: string): Promise<void>;
     decoderNthImageArrayBuff(sourceId: string, index: number): Promise<DecoderImageData>;
     updateArrayBuff(): Promise<boolean>;

@@ -47,7 +47,7 @@ export default class AnimationPlayback<
    */
   playSourceId: string;
   loop = 1;
-
+  lastFrameIndex = 0;
   render!: (
     arrayBuffer: Uint8ClampedArray,
     width: number,
@@ -132,7 +132,6 @@ export default class AnimationPlayback<
    * 暂停播放
    */
   pause(sourceId: string, index?: number) {
-    this.setPlayId(sourceId);
     if (!this.playing) return;
     this.paused = true;
     if (isNumeric(index)) this.index = index;
@@ -155,28 +154,32 @@ export default class AnimationPlayback<
 
   setPlayId(sourceId: string) {
     if (sourceId !== this.playSourceId) {
+      this.stopNthImageCallback();
       this.playSourceId = sourceId;
       const source = this.AvifPlayerWeb.sources.find(
         (source) => source.sourceId === sourceId
       );
       this.loop = source.loop === 0 ? Infinity : source.loop;
+      this.loopCount = 0;
+      this.paused = false;
+      this.playing = false;
+      this.arrayBuffStackSize = 0;
     }
   }
 
   async updateAsync(sourceId: string, diff = 0) {
     const source = this.decoder.findSource(sourceId);
+    this.lastFrameIndex = source.imageCount - 1;
     this.paused = false;
     this.playing = true;
     this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
     let prevFrameTime = (this.lastTimestamp = performance.now() - diff);
-
     for (; this.loopCount < this.loop!; this.loopCount++) {
       while (this.index < source.imageCount) {
         const imageData = await this.decoderNthImageArrayBuff(
           sourceId,
           this.index
         );
-        if (this.paused) return;
 
         const now = performance.now();
 
@@ -196,8 +199,10 @@ export default class AnimationPlayback<
           this.framesPerformanceDelay[imageData.frameIndex] = now + delay;
         }
 
+        this.lastTimestamp = frameDisplayTime;
+        this.index++;
+
         this.sleep(delay).then(() => {
-          if (this.paused) return;
           this.arrayBuffStackSize--;
           const pixels = new Uint8ClampedArray(imageData.pixels);
           this.render(pixels, imageData.width, imageData.height);
@@ -207,23 +212,27 @@ export default class AnimationPlayback<
             index: imageData.frameIndex,
             decodeTime: imageData.decodeTime,
           });
+          this.checkPlayEnd(imageData.frameIndex, source.imageCount);
         });
-
-        this.lastTimestamp = performance.now();
-        this.index++;
       }
 
       this.index = 0;
+      prevFrameTime = this.lastTimestamp;
     }
-    this.index = 0;
-    this.loopCount = 0;
-    this.AvifPlayerWeb.emit(
-      AvifPlayerWebChannel.end,
-      this.AvifPlayerWeb.sources.find(
-        (source) => source.sourceId === this.playSourceId
-      )
-    );
-    this.playing = false;
+  }
+
+  checkPlayEnd(index: number, imageCount: number) {
+    if (index === this.lastFrameIndex && this.loopCount === this.loop) {
+      this.index = 0;
+      this.loopCount = 0;
+      this.playing = false;
+      this.AvifPlayerWeb.emit(
+        AvifPlayerWebChannel.end,
+        this.AvifPlayerWeb.sources.find(
+          (source) => source.sourceId === this.playSourceId
+        )
+      );
+    }
   }
 
   async updateSync(sourceId: string) {
