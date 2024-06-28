@@ -1,7 +1,7 @@
 import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
-import { AvifPlayerWebChannel } from "../types";
+import { AID_TYPE, AvifPlayerSourceType, AvifPlayerWebChannel } from "../types";
 import {
   DecoderImageData,
   DecoderChannel,
@@ -33,7 +33,7 @@ export default class AnimationPlayback<
   pts = 0;
   frameIndex = 0;
   framesPerformanceDelay: number[];
-  update: (sourceId: string, diff: number) => void;
+  update: (id: AID_TYPE, diff: number) => void;
   /**
    * 当前调用栈缓冲大小
    */
@@ -43,9 +43,9 @@ export default class AnimationPlayback<
    */
   arrayBuffLength = 1;
   /**
-   * 当前正在播放的资源id
+   * 当前播放的动画id
    */
-  playSourceId: string;
+  playingId: AID_TYPE;
   loop = 1;
   lastFrameIndex = 0;
   render!: (
@@ -102,11 +102,20 @@ export default class AnimationPlayback<
     }
   }
 
-  play(sourceId: string, index?: number) {
-    this.setPlayId(sourceId);
+  play(avifPlayerSource: AvifPlayerSourceType, index?: number) {
+    if (
+      this.playingId !== undefined &&
+      avifPlayerSource?.id !== this.playingId
+    ) {
+      this.switchPlayId(avifPlayerSource);
+    } else {
+      this.playingId = avifPlayerSource.id;
+      this.loop =
+        avifPlayerSource.loop === 0 ? Infinity : avifPlayerSource.loop;
+    }
     if (!this.playing) {
       if (this.decoder) {
-        const source = this.decoder.findSource(sourceId);
+        const source = this.decoder.findSource(avifPlayerSource.id);
         if (isNumeric(index)) this.index = index;
         if (this.option.async) {
           this.resetFramesStatus(source.imageCount);
@@ -115,13 +124,17 @@ export default class AnimationPlayback<
             this.framesPerformanceDelay[this.frameIndex] = performance.now();
           }
         }
-        this.update(sourceId, this.paused ? this.pts : 0);
+        this.update(avifPlayerSource.id, this.paused ? this.pts : 0);
       } else {
         throw new Error("未设置解码器对象");
       }
     } else {
+      this.stopNthImageCallback();
       if (isNumeric(index)) this.index = index;
+      this.arrayBuffStackSize = 0;
+      this.update(avifPlayerSource.id, 0);
     }
+    return avifPlayerSource.id;
   }
 
   resetFramesStatus(imageCount: number) {
@@ -131,14 +144,14 @@ export default class AnimationPlayback<
   /**
    * 暂停播放
    */
-  pause(sourceId: string, index?: number) {
+  pause(id: AID_TYPE, index?: number) {
     if (!this.playing) return;
     this.paused = true;
     if (isNumeric(index)) this.index = index;
     this.stopNthImageCallback();
     this.playing = false;
     if (this.option.async) {
-      const source = this.decoder.findSource(sourceId);
+      const source = this.decoder.findSource(id);
       this.resetFramesStatus(source.imageCount);
       this.arrayBuffStackSize = 0;
     }
@@ -152,34 +165,36 @@ export default class AnimationPlayback<
     });
   }
 
-  setPlayId(sourceId: string) {
-    if (sourceId !== this.playSourceId) {
-      this.stopNthImageCallback();
-      this.playSourceId = sourceId;
-      const source = this.AvifPlayerWeb.sources.find(
-        (source) => source.sourceId === sourceId
-      );
+  setPlayId(source: AvifPlayerSourceType) {
+    if (source.id !== this.playingId) {
+      this.playingId = source.id;
       this.loop = source.loop === 0 ? Infinity : source.loop;
-      this.loopCount = 0;
-      this.paused = false;
-      this.playing = false;
-      this.arrayBuffStackSize = 0;
     }
   }
 
-  async updateAsync(sourceId: string, diff = 0) {
-    const source = this.decoder.findSource(sourceId);
+  switchPlayId(source: AvifPlayerSourceType) {
+    this.stopNthImageCallback();
+    this.playingId = source.id;
+    this.loop = source.loop === 0 ? Infinity : source.loop;
+    this.loopCount = 0;
+    this.paused = false;
+    this.playing = false;
+    this.arrayBuffStackSize = 0;
+  }
+
+  async updateAsync(id: string, diff = 0) {
+    const source = this.decoder.findSource(id);
+    const avifPlayerSource = this.AvifPlayerWeb.findSource(this.playingId);
     this.lastFrameIndex = source.imageCount - 1;
     this.paused = false;
     this.playing = true;
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, {
+      id: avifPlayerSource.id,
+    });
     let prevFrameTime = (this.lastTimestamp = performance.now() - diff);
     for (; this.loopCount < this.loop!; this.loopCount++) {
       while (this.index < source.imageCount) {
-        const imageData = await this.decoderNthImageArrayBuff(
-          sourceId,
-          this.index
-        );
+        const imageData = await this.decoderNthImageArrayBuff(id, this.index);
 
         const now = performance.now();
 
@@ -212,7 +227,7 @@ export default class AnimationPlayback<
             index: imageData.frameIndex,
             decodeTime: imageData.decodeTime,
           });
-          this.checkPlayEnd(imageData.frameIndex, source.imageCount);
+          this.checkPlayEnd(imageData.frameIndex, avifPlayerSource.id);
         });
       }
 
@@ -221,33 +236,29 @@ export default class AnimationPlayback<
     }
   }
 
-  checkPlayEnd(index: number, imageCount: number) {
+  checkPlayEnd(index: number, id: string | number) {
     if (index === this.lastFrameIndex && this.loopCount === this.loop) {
       this.index = 0;
       this.loopCount = 0;
       this.playing = false;
-      this.AvifPlayerWeb.emit(
-        AvifPlayerWebChannel.end,
-        this.AvifPlayerWeb.sources.find(
-          (source) => source.sourceId === this.playSourceId
-        )
-      );
+      this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, {
+        id,
+      });
     }
   }
 
-  async updateSync(sourceId: string) {
-    const source = this.decoder.findSource(sourceId);
+  async updateSync(id: string) {
+    const source = this.decoder.findSource(id);
+    const avifPlayerSource = this.AvifPlayerWeb.findSource(this.playingId);
     this.paused = false;
     this.playing = true;
-    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, true);
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.play, {
+      id: avifPlayerSource.id,
+    });
     this.lastTimestamp = performance.now();
-
     for (; this.loopCount < this.loop!; this.loopCount++) {
       while (this.index < source.imageCount) {
-        const imageData = await this.decoder.decoderNthImage(
-          sourceId,
-          this.index
-        );
+        const imageData = await this.decoder.decoderNthImage(id, this.index);
         const delay = imageData.frameIndex
           ? imageData.duration * 1000 - imageData.decodeTime
           : 0;
@@ -267,23 +278,20 @@ export default class AnimationPlayback<
     }
     this.index = 0;
     this.loopCount = 0;
-    this.AvifPlayerWeb.emit(
-      AvifPlayerWebChannel.end,
-      this.AvifPlayerWeb.sources.find(
-        (source) => source.sourceId === this.playSourceId
-      )
-    );
+    this.AvifPlayerWeb.emit(AvifPlayerWebChannel.end, {
+      id: avifPlayerSource.id,
+    });
     this.playing = false;
   }
 
-  async decoderNthImageArrayBuff(sourceId: string, index: number) {
+  async decoderNthImageArrayBuff(id: string, index: number) {
     if (this.arrayBuffStackSize <= this.arrayBuffLength) {
-      const imageData = await this.decoder.decoderNthImage(sourceId, index);
+      const imageData = await this.decoder.decoderNthImage(id, index);
       this.arrayBuffStackSize++;
       return imageData;
     }
     await this.updateArrayBuff();
-    const imageData = await this.decoder.decoderNthImage(sourceId, index);
+    const imageData = await this.decoder.decoderNthImage(id, index);
     this.arrayBuffStackSize++;
     return imageData;
   }
@@ -432,11 +440,13 @@ export default class AnimationPlayback<
   }
 
   destroy() {
-    this.AvifPlayerWeb.sources.forEach((source) => {
-      this.pause(source.sourceId);
-    });
+    this.stopNthImageCallback();
     this.index = 0;
     this.frameIndex = 0;
+    this.loopCount = 0;
+    this.paused = false;
+    this.playing = false;
+    this.arrayBuffStackSize = 0;
   }
 
   requestAnimationFrame(callback: FrameRequestCallback) {

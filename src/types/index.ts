@@ -7,6 +7,11 @@ export type MessageEventType<T, E> = [
   number | undefined,
 ];
 
+/**
+ * id
+ */
+export type AID_TYPE = string | number;
+
 export enum AvifPlayerWebChannel {
   /**
    * 错误
@@ -40,30 +45,30 @@ export enum AvifPlayerWebChannel {
 
 export interface AvifPlayerWebEventMap {
   [AvifPlayerWebChannel.error]: Error | ErrorEvent;
-  [AvifPlayerWebChannel.play]: boolean;
-  [AvifPlayerWebChannel.end]: AvifPlayerSourceType;
+  [AvifPlayerWebChannel.play]: PlayData;
+  [AvifPlayerWebChannel.end]: PlayData;
   [AvifPlayerWebChannel.pause]: boolean;
   [AvifPlayerWebChannel.frameIndexChange]: FrameIndexChangeEvent;
   [AvifPlayerWebChannel.destroy]: {};
   [AvifPlayerWebChannel.parse]: AvifDataParse;
 }
 
-export interface AnimationOption {
+export interface AnimationID {
   /**
    * 动画id
    */
-  id: number | string;
+  id: AID_TYPE;
 }
+
+export interface AnimationOption extends AnimationID {}
+
+export interface PlayData extends AnimationOption {}
 
 export interface AvifPlayerSourceType extends AnimationOption {
   /**
    * 资源路径
    */
   url: string;
-  /**
-   * 唯一资源标识
-   */
-  sourceId: string;
   /**
    * 循环播放次数，0表示无限循环播放
    */

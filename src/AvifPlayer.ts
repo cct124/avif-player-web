@@ -1,5 +1,3 @@
-import MD5 from "crypto-js/md5";
-import CryptoJS from "crypto-js/core";
 import WebpackWorker from "./Worker/Libavif.worker";
 import { AvifPlayerWebOptions, Source } from "./types/AvifPlayerWebType";
 import { deepMixins, isNumeric } from "./utils";
@@ -17,6 +15,7 @@ import {
   AvifPlayerWebEventMap,
   AvifPlayerSourceType,
   PlayOptions,
+  AID_TYPE,
 } from "./types";
 
 type Sources = string | ArrayBuffer | Source[];
@@ -33,9 +32,9 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   sources: AvifPlayerSourceType[];
   libavifDecoder: LibavifDecoder;
   /**
-   * 当前播放的资源id，默认是sources资源数组的第一个
+   * 当前播放的动画id
    */
-  playSourceId: string;
+  playingId: AID_TYPE;
 
   constructor(
     url: string | ArrayBuffer | AvifPlayerWebOptions,
@@ -56,6 +55,10 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
       this.option = this.mixinOptions(option);
       this.sources = this.sourcesHandle(this.option.source);
     }
+    this.option.playingId =
+      this.option.playingId === undefined
+        ? this.sources[0].id
+        : this.option.playingId;
 
     // 判断是元素id还是DOM对象
     if (typeof this.option.canvas === "string") {
@@ -65,18 +68,19 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     }
 
     this.checkConstructor(this.option);
-    this.playSourceId = this.sources[0].sourceId;
     if (this.option.autoplay) {
       this.initialLibavifDecoder().then(() => {
-        this.decoderParsePlay().then(() => {
-          this.animationPlayback.play(this.playSourceId);
+        this.decoderParsePlay(this.option.playingId).then(() => {
+          this.playingId = this.animationPlayback.play(
+            this.findSource(this.option.playingId)
+          );
         });
       });
     } else if (this.option.initDecoderInstantly) {
       this.initialLibavifDecoder();
     } else if (this.option.initDecoderAvifInstantly) {
       this.initialLibavifDecoder().then(() => {
-        this.decoderParsePlay();
+        this.decoderParsePlay(this.option.playingId);
       });
     }
   }
@@ -132,63 +136,58 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
       }
     });
   }
-  /**
-   * 切换播放的资源
-   * @param id 动画id
-   * @param index 帧索引
-   */
-  switch(id: number | string, index: number = 0) {
-    const source = this.sources.find((source) => source.id === id);
-    if (source) {
-      this.playSourceId = source.sourceId;
-      this.animationPlayback.setPlayId(this.playSourceId);
-    } else {
-      throw new Error(`id: ${id}不存在`);
-    }
-  }
 
   pause(index?: number) {
-    this.animationPlayback.pause(this.playSourceId, index);
+    this.animationPlayback.pause(this.playingId, index);
   }
 
-  async play(index?: number | PlayOptions) {
-    if (typeof index === "object") {
-      this.switch(index.id);
-      index = index.index;
+  async play(play?: number | PlayOptions) {
+    const options: PlayOptions = {
+      id: undefined,
+      index: undefined,
+    };
+    if (typeof play === "object") {
+      const { id, index } = play;
+      options.id = id;
+      options.index = index;
+    } else {
+      options.index = play;
     }
+    const id =
+      options.id !== undefined
+        ? options.id
+        : this.playingId !== undefined
+          ? this.playingId
+          : this.option.playingId;
     // 解码器对象不存在时，解码器可能为初始化或者被销毁，这时重新初始化解码器
     if (!this.libavifDecoder) {
       await this.initialLibavifDecoder();
-      await this.decoderParsePlay();
-    } else if (
-      !this.libavifDecoder.findSource(this.playSourceId).decoderParseComplete
-    ) {
-      await this.decoderParsePlay();
+      await this.decoderParsePlay(id);
+    } else {
+      await this.decoderParsePlay(id);
     }
-    this.animationPlayback.play(this.playSourceId, index);
+    this.playingId = this.animationPlayback.play(
+      this.findSource(id),
+      options.index
+    );
   }
 
-  private async decoderParsePlay() {
-    if (
-      !this.libavifDecoder.findSource(this.playSourceId).decoderParseComplete
-    ) {
+  private async decoderParsePlay(id: AID_TYPE = this.playingId) {
+    if (!this.libavifDecoder.findSource(id).decoderParseComplete)
       this.setCanvasSize();
-      if (this.option.enableStreaming) {
-        await this.streamingArrayBuffer(this.sources, this.libavifDecoder);
-        await this.libavifDecoder.decoderParse(this.playSourceId);
-      } else {
-        await this.fillArrayBuffer(this.sources);
-        const source = this.sources.find(
-          (source) => source.sourceId === this.playSourceId
-        );
-        await this.libavifDecoder.decoderParse(
-          this.playSourceId,
-          source.arrayBuffer
-        );
-      }
-      this.animationPlayback.initRender();
-      return;
+    if (this.option.enableStreaming) {
+      await this.streamingArrayBuffer(this.sources, this.libavifDecoder);
+      await this.libavifDecoder.decoderParse(id);
+    } else {
+      await this.fillArrayBuffer(this.sources);
+      const source = this.sources.find((source) => source.id === id);
+      await this.libavifDecoder.decoderParse(
+        id,
+        source.arrayBuffer.byteLength ? source.arrayBuffer : null
+      );
     }
+    this.animationPlayback.initRender();
+    return;
   }
 
   private async streamingArrayBuffer(
@@ -198,10 +197,10 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     return Promise.all(
       sources.map(
         (source) =>
-          new Promise<string>((resolve, reject) => {
+          new Promise<AID_TYPE>((resolve, reject) => {
             try {
               if (source.arrayBuffer) {
-                return resolve(source.sourceId);
+                return resolve(source.id);
               } else {
                 return fetch(source.url)
                   .then((response) => {
@@ -213,13 +212,8 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
                         value,
                       }): any {
                         libavifDecoder
-                          .streamingArrayBuffer(
-                            source.sourceId,
-                            done,
-                            value,
-                            size
-                          )
-                          .then(() => resolve(source.sourceId));
+                          .streamingArrayBuffer(source.id, done, value, size)
+                          .then(() => resolve(source.id));
                         if (!source?.arrayBuffer) source.arrayBuffer = value;
                         if (done) return;
                         // 继续读取下一个数据块
@@ -254,10 +248,10 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     return Promise.all(
       sources.map(async (source) => {
         if (source.arrayBuffer) {
-          return source.sourceId;
+          return source.id;
         } else {
           source.arrayBuffer = await this.fetchFileArrayBuffer(source.url);
-          return source.sourceId;
+          return source.id;
         }
       })
     );
@@ -280,23 +274,14 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
       throw new Error("请传入canvas元素ID或canvas DOM对象");
   }
 
-  /**
-   * 判断是否支持av1视频编码
-   * @returns
-   */
-  hasAv1Support() {
-    const vid = document.createElement("video");
-    return vid.canPlayType('video/mp4; codecs="av01.0.05M.08"') === "probably";
-  }
-
   setCanvasSize() {
     this.libavifDecoder.once(
       DecoderChannel.avifParse,
-      ({ width, height, sourceId }) => {
+      ({ width, height, id }) => {
         (this.option.canvas as HTMLCanvasElement).width = width;
         (this.option.canvas as HTMLCanvasElement).height = height;
         this.emit(AvifPlayerWebChannel.parse, {
-          id: this.sources.find((source) => source.sourceId === sourceId).id,
+          id: this.sources.find((source) => source.id === id).id,
           width,
           height,
         });
@@ -313,16 +298,12 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
           _sources.push({
             id,
             url,
-            sourceId: MD5(url).toString(),
             loop,
           });
         } else if (arrayBuffer) {
           _sources.push({
             id,
             url: "",
-            sourceId: MD5(
-              CryptoJS.lib.WordArray.create(arrayBuffer)
-            ).toString(),
             arrayBuffer: arrayBuffer,
             loop,
           });
@@ -335,11 +316,9 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
 
       return _sources;
     } else if (typeof sources === "string") {
-      const sourceId = MD5(sources).toString();
       _sources.push({
-        id: sourceId,
+        id: 0,
         url: sources,
-        sourceId,
         loop: isNumeric(this.option?.loop) ? this.option?.loop : 1,
       });
       return _sources;
@@ -351,17 +330,26 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
   }
 
   /**
+   * 获取 source
+   * @param id
+   * @returns
+   */
+  findSource(id: AID_TYPE) {
+    return this.sources.find((source) => source.id === id);
+  }
+
+  /**
    * 销毁解码器`Worker`线程
    *
    * 播放将暂停帧索引重置为0
    */
   destroy() {
-    this.emit(AvifPlayerWebChannel.destroy, {});
     this.animationPlayback.destroy();
-    this.libavifDecoder.destroy();
     this.sources.forEach((source) => {
       source.arrayBuffer = null;
     });
+    this.libavifDecoder.destroy();
     this.libavifDecoder = null;
+    this.emit(AvifPlayerWebChannel.destroy, {});
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "avif-player-web",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "使用webassembly软解播放AVIF动画文件",
   "main": "./lib/index.js",
   "browser": "./lib/index.js",
@@ -33,7 +33,6 @@
   "author": "Jane",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/crypto-js": "^4.2.2",
     "@webpack-cli/generators": "^3.0.7",
     "prettier": "^3.2.5",
     "ts-loader": "^9.5.1",
@@ -43,7 +42,5 @@
     "webpack-dev-server": "^5.0.4",
     "worker-loader": "^3.0.8"
   },
-  "dependencies": {
-    "crypto-js": "^4.2.0"
-  }
+  "dependencies": {}
 }

@@ -34,4 +34,4 @@ export declare function isNumeric(num: number): boolean;
  * 快速生成唯一id
  * @returns
  */
-export declare function generateQuickUniqueId(): string;
+export declare function generateQuickUniqueId(): number;

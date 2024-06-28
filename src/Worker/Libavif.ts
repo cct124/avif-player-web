@@ -1,12 +1,13 @@
 import {
   AvifDecoderMessageChannel,
+  ResourceSymbol,
   WorkerAvifDecoderMessageChannel,
 } from "../types/WorkerMessageType";
 import { AVIF_RESULT, AvifImageTiming } from "./type";
 import LibavifWorker from "./Libavif.worker";
+import { AID_TYPE } from "../types";
 
-export interface ImageDataInfo {
-  sourceId: string;
+export interface ImageDataInfo extends ResourceSymbol {
   timescale: number;
   pts: number;
   ptsInTimescales: number;
@@ -20,7 +21,7 @@ export interface ImageDataInfo {
 }
 
 export default class Libavif {
-  sourceId: string;
+  id: AID_TYPE;
   AwsmAvifDecode: any;
   decoderPtr?: number;
   bufferPtr?: number;
@@ -29,7 +30,7 @@ export default class Libavif {
   avifImageCachePtr?: number;
   index = 0;
   imageCount = 0;
-  decoderNthImage!: (sourceId: string, frameIndex: number) => void;
+  decoderNthImage!: (id: AID_TYPE, frameIndex: number) => void;
   rbgPtr?: number;
   decodeStats: number[] = [];
   libavifWorker: LibavifWorker;
@@ -39,11 +40,25 @@ export default class Libavif {
   streamingArrayBufferOffset = 0;
   avifDecoderParseComplete = false;
   streamingArrayBufferComplete = false;
-
-  constructor(libavifWorker: LibavifWorker, awsmAvifDecode: any) {
+  bufferSize = 0;
+  constructor(
+    libavifWorker: LibavifWorker,
+    awsmAvifDecode: any,
+    decoderPtr?: number
+  ) {
     this.libavifWorker = libavifWorker;
     this.AwsmAvifDecode = awsmAvifDecode;
-    // console.log(this.AwsmAvifDecode);
+    this.decoderPtr = decoderPtr;
+  }
+
+  avifDecoderCreate() {
+    if (this.decoderPtr) {
+      return this.decoderPtr;
+    } else if (this.libavifWorker.decoderPtr) {
+      this.decoderPtr = this.libavifWorker.decoderPtr;
+      return this.decoderPtr;
+    }
+    return this.AwsmAvifDecode._avifDecoderCreate();
   }
 
   /**
@@ -54,12 +69,12 @@ export default class Libavif {
    * @returns
    */
   streamingArrayBuffer(
-    sourceId: string,
+    id: AID_TYPE,
     done: boolean,
     size: number,
     arrayBuffer: ArrayBuffer
   ) {
-    if (!this.sourceId) this.sourceId = sourceId;
+    if (this.id === undefined) this.id = id;
     this.streamingArrayBufferDone = done;
     if (this.streamingArrayBufferDone) {
       this.streamingArrayBufferComplete = true;
@@ -70,7 +85,7 @@ export default class Libavif {
       return;
     }
     if (this.streamingArrayBufferSize === 0) {
-      this.streamingArrayBufferSize = size;
+      this.bufferSize = this.streamingArrayBufferSize = size;
     }
     if (!this.bufferPtr) {
       this.bufferPtr = this.AwsmAvifDecode._malloc(
@@ -88,8 +103,6 @@ export default class Libavif {
     );
 
     this.streamingArrayBufferOffset += arrayBuffer.byteLength;
-    // console.log(this.streamingArrayBufferOffset, size);
-
     return arrayBuffer.byteLength;
   }
 
@@ -98,7 +111,7 @@ export default class Libavif {
    */
   avifDecodeStreamingCreate() {
     try {
-      this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
+      this.decoderPtr = this.avifDecoderCreate();
       if (!this.decoderPtr) {
         this.free(this.bufferPtr);
         throw new Error("Failed to create decoder");
@@ -116,6 +129,7 @@ export default class Libavif {
       }
 
       this.AwsmAvifDecode._avifDecoderSetIO(this.decoderPtr, this.avifIOPtr);
+      return this.decoderPtr;
     } catch (error) {
       this.error(new Error(`${error}`));
       if (this.bufferPtr) this.free(this.bufferPtr);
@@ -131,8 +145,6 @@ export default class Libavif {
   }
 
   avifDecodeStreamingParse() {
-    if (this.avifDecoderParseComplete) return;
-
     const result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
     if (result == AVIF_RESULT.AVIF_RESULT_OK) {
       this.avifDecoderParseComplete = true;
@@ -145,35 +157,37 @@ export default class Libavif {
           imageCount: this.imageCount,
           width: this.width!,
           height: this.height!,
-          sourceId: this.sourceId,
+          id: this.id,
         }
       );
     }
   }
 
-  avifDecoderParse(sourceId: string, arrayBuffer: ArrayBuffer) {
+  avifDecoderParse(id: AID_TYPE, arrayBuffer?: ArrayBuffer) {
     try {
-      this.sourceId = sourceId;
-      const bufferSize = arrayBuffer.byteLength;
-      this.bufferPtr = this.AwsmAvifDecode._malloc(bufferSize);
-      if (!this.bufferPtr) {
-        throw new Error("Failed to allocate memory for buffer");
-      }
+      if (!this.bufferPtr && arrayBuffer) {
+        this.id = id;
+        this.bufferSize = arrayBuffer.byteLength;
+        this.bufferPtr = this.AwsmAvifDecode._malloc(this.bufferSize);
+        if (!this.bufferPtr) {
+          throw new Error("Failed to allocate memory for buffer");
+        }
 
-      this.AwsmAvifDecode.HEAPU8.set(
-        new Uint8Array(arrayBuffer),
-        this.bufferPtr
-      );
-      this.decoderPtr = this.AwsmAvifDecode._avifDecoderCreate();
-      if (!this.decoderPtr) {
-        this.free(this.bufferPtr);
-        throw new Error("Failed to create decoder");
+        this.AwsmAvifDecode.HEAPU8.set(
+          new Uint8Array(arrayBuffer),
+          this.bufferPtr
+        );
+        this.decoderPtr = this.avifDecoderCreate();
+        if (!this.decoderPtr) {
+          this.free(this.bufferPtr);
+          throw new Error("Failed to create decoder");
+        }
       }
 
       let result = this.AwsmAvifDecode._avifDecoderSetIOMemory(
         this.decoderPtr,
         this.bufferPtr,
-        bufferSize
+        this.bufferSize
       );
       if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
         this.free(this.bufferPtr);
@@ -182,6 +196,7 @@ export default class Libavif {
       }
 
       result = this.AwsmAvifDecode._avifDecoderParse(this.decoderPtr);
+
       if (result !== AVIF_RESULT.AVIF_RESULT_OK) {
         this.free(this.bufferPtr);
         this.free(this.decoderPtr);
@@ -200,7 +215,9 @@ export default class Libavif {
         return;
       }
 
+      this.avifDecoderParseComplete = true;
       this.rbgPtr = this.AwsmAvifDecode._avifGetRGBImage();
+      return this.decoderPtr;
     } catch (error) {
       this.error(new Error(`${error}`));
       if (this.bufferPtr) this.free(this.bufferPtr);
@@ -208,7 +225,7 @@ export default class Libavif {
     }
   }
 
-  avifDecoderNextImage(sourceId: string, frameIndex: number) {
+  avifDecoderNextImage(frameIndex: number) {
     const result = this.AwsmAvifDecode._avifDecoderNthImage(
       this.decoderPtr,
       frameIndex
@@ -217,7 +234,7 @@ export default class Libavif {
   }
 
   avifDecoderNthImage(
-    sourceId: string,
+    id: AID_TYPE,
     frameIndex: number
   ): [ImageDataInfo, Uint8ClampedArray] | number {
     let result = 0;
@@ -271,13 +288,13 @@ export default class Libavif {
       if (frameIndex === this.imageCount) {
         this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.decodingComplete,
-          { sourceId }
+          { id }
         );
       }
 
       return [
         {
-          sourceId,
+          id,
           timescale: timing.timescale,
           pts: timing.pts,
           ptsInTimescales: timing.ptsInTimescales,
@@ -296,7 +313,7 @@ export default class Libavif {
     return result;
   }
 
-  avifDecoderImage(sourceId: string) {
+  avifDecoderImage(id: AID_TYPE) {
     try {
       let result = 0;
       let frameIndex = 0;
@@ -355,7 +372,7 @@ export default class Libavif {
         this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
           {
-            sourceId,
+            id,
             timescale: timing.timescale,
             pts: timing.pts,
             ptsInTimescales: timing.ptsInTimescales,
@@ -378,7 +395,7 @@ export default class Libavif {
       if (result === AVIF_RESULT.AVIF_RESULT_NO_IMAGES_REMAINING) {
         this.libavifWorker.postMessage(
           WorkerAvifDecoderMessageChannel.decodingComplete,
-          { sourceId }
+          { id }
         );
       }
     } catch (error) {

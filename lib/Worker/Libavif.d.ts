@@ -1,7 +1,8 @@
+import { ResourceSymbol } from "../types/WorkerMessageType";
 import { AvifImageTiming } from "./type";
 import LibavifWorker from "./Libavif.worker";
-export interface ImageDataInfo {
-    sourceId: string;
+import { AID_TYPE } from "../types";
+export interface ImageDataInfo extends ResourceSymbol {
     timescale: number;
     pts: number;
     ptsInTimescales: number;
@@ -14,7 +15,7 @@ export interface ImageDataInfo {
     decodeTime: number;
 }
 export default class Libavif {
-    sourceId: string;
+    id: AID_TYPE;
     AwsmAvifDecode: any;
     decoderPtr?: number;
     bufferPtr?: number;
@@ -23,7 +24,7 @@ export default class Libavif {
     avifImageCachePtr?: number;
     index: number;
     imageCount: number;
-    decoderNthImage: (sourceId: string, frameIndex: number) => void;
+    decoderNthImage: (id: AID_TYPE, frameIndex: number) => void;
     rbgPtr?: number;
     decodeStats: number[];
     libavifWorker: LibavifWorker;
@@ -33,7 +34,9 @@ export default class Libavif {
     streamingArrayBufferOffset: number;
     avifDecoderParseComplete: boolean;
     streamingArrayBufferComplete: boolean;
-    constructor(libavifWorker: LibavifWorker, awsmAvifDecode: any);
+    bufferSize: number;
+    constructor(libavifWorker: LibavifWorker, awsmAvifDecode: any, decoderPtr?: number);
+    avifDecoderCreate(): any;
     /**
      * 数据流写入内存
      * @param done
@@ -41,17 +44,17 @@ export default class Libavif {
      * @param arrayBuffer
      * @returns
      */
-    streamingArrayBuffer(sourceId: string, done: boolean, size: number, arrayBuffer: ArrayBuffer): number;
+    streamingArrayBuffer(id: AID_TYPE, done: boolean, size: number, arrayBuffer: ArrayBuffer): number;
     /**
      * 解析avif数据流，调用这个方法时必须先调用`streamingArrayBuffer`
      */
-    avifDecodeStreamingCreate(): void;
+    avifDecodeStreamingCreate(): number;
     updateDownloadedBytes(): void;
     avifDecodeStreamingParse(): void;
-    avifDecoderParse(sourceId: string, arrayBuffer: ArrayBuffer): void;
-    avifDecoderNextImage(sourceId: string, frameIndex: number): any;
-    avifDecoderNthImage(sourceId: string, frameIndex: number): [ImageDataInfo, Uint8ClampedArray] | number;
-    avifDecoderImage(sourceId: string): void;
+    avifDecoderParse(id: AID_TYPE, arrayBuffer?: ArrayBuffer): number;
+    avifDecoderNextImage(frameIndex: number): any;
+    avifDecoderNthImage(id: AID_TYPE, frameIndex: number): [ImageDataInfo, Uint8ClampedArray] | number;
+    avifDecoderImage(id: AID_TYPE): void;
     getImageTiming(timingPtr: number): AvifImageTiming;
     avifVersion(): string;
     resultToStr(result: number): any;

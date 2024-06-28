@@ -1,3 +1,4 @@
+import { AID_TYPE } from "./index";
 export declare enum WorkerAvifDecoderMessageChannel {
     error = 0,
     /**
@@ -16,10 +17,6 @@ export declare enum WorkerAvifDecoderMessageChannel {
      * 所有图像数据解码完成
      */
     decodingComplete = 4,
-    /**
-     * Avif文件解析完成
-     */
-    avifDecoderParseComplete = 5,
     /**
      * 解码所有帧数据
      */
@@ -153,7 +150,7 @@ export interface ResourceSymbol {
     /**
      * 唯一资源标识
      */
-    sourceId: string;
+    id: AID_TYPE;
 }
 export interface AvifDecoderParseData extends ResourceSymbol {
 }
@@ -185,7 +182,6 @@ export interface WorkerAvifDecoderEventMap {
     [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
     [WorkerAvifDecoderMessageChannel.initial]: {};
     [WorkerAvifDecoderMessageChannel.decodingComplete]: DecodingComplete;
-    [WorkerAvifDecoderMessageChannel.avifDecoderParseComplete]: AvifDecoderParseComplete;
     [WorkerAvifDecoderMessageChannel.error]: Error;
     [WorkerAvifDecoderMessageChannel.avifDecoderImage]: ResourceSymbol;
     [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNthImageData;
@@ -196,6 +192,7 @@ export interface WorkerAvifDecoderEventMap {
     [WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage]: AvifDecoderNthImageData;
 }
 export interface WorkerAvifDecoderCallBackEventMap {
+    [WorkerAvifDecoderMessageChannel.avifDecoderParse]: AvifDecoderParseComplete;
     [WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer]: StreamingArrayBufferCallBack;
     [WorkerAvifDecoderMessageChannel.avifDecoderNthImage]: AvifDecoderNextImageData;
     [WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse]: AvifDecoderParseComplete;

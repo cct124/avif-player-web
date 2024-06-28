@@ -1,9 +1,10 @@
 import { Observer } from "../Observer";
-import { MessageEventType } from "../types";
+import { AID_TYPE, MessageEventType } from "../types";
 import {
   DecoderChannel,
   DecoderEventMap,
   DecoderImageData,
+  ResourceSymbol,
 } from "../types/WorkerMessageType";
 import { generateQuickUniqueId } from "../utils";
 
@@ -13,25 +14,21 @@ abstract class DecoderAbstract {
    * @param arrayBuffer
    */
   abstract decoderParse(
-    sourceId: string,
+    id: AID_TYPE,
     arrayBuffer: ArrayBuffer
   ): Promise<boolean>;
   abstract decoderNthImage(
-    sourceId: string,
+    id: AID_TYPE,
     frameIndex: number
   ): Promise<DecoderImageData>;
   /**
    * 查找资源对象
-   * @param sourceId
+   * @param id
    */
-  abstract findSource(sourceId: string): SOURCE;
+  abstract findSource(id: AID_TYPE): SourceType;
 }
 
-export interface SOURCE {
-  /**
-   * 唯一资源标识
-   */
-  sourceId: string;
+export interface SourceType extends ResourceSymbol {
   /**
    * 所有帧已成功解码完成
    */
@@ -64,7 +61,7 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
    */
   decoderVersion = "";
 
-  sources: SOURCE[] = [];
+  sources: SourceType[] = [];
 
   /**
    * 图像宽度
@@ -79,19 +76,19 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
     super();
   }
 
-  findSource(sourceId: string) {
-    return this.sources.find((source) => source.sourceId === sourceId);
+  findSource(id: AID_TYPE) {
+    return this.sources.find((source) => source.id === id);
   }
 
-  decoderParse(sourceId: string, arrayBuffer: ArrayBuffer) {
+  decoderParse(id: AID_TYPE, arrayBuffer: ArrayBuffer) {
     return Promise.resolve(true);
   }
 
-  decoderNthImage(sourceId: string, frameIndex: number) {
+  decoderNthImage(id: AID_TYPE, frameIndex: number) {
     return Promise.resolve({} as DecoderImageData);
   }
 
-  avifDecoderAllImage(sourceId: string) {}
+  avifDecoderAllImage(id: AID_TYPE) {}
 
   /**
    * 删除所有`NthImage`解码回调
@@ -99,7 +96,7 @@ export class Decoder<M> extends Observer<M> implements DecoderAbstract {
   clearNthImageCallback() {}
 
   streamingArrayBuffer(
-    sourceId: string,
+    id: string,
     done: boolean,
     arrayBuffer: Uint8Array,
     size: number
@@ -112,10 +109,13 @@ export class MainEventEmitter<
   M extends DecoderEventMap,
 > extends Decoder<M> {
   private workerListeners = new Map<
-    keyof W | string,
+    keyof W | string | number,
     Set<(data: any, arrayBuffer?: ArrayBuffer) => void>
   >();
-  private callbackUniqueIds = new Map<keyof W | string, Set<string>>();
+  private callbackUniqueIds = new Map<
+    keyof W | string | number,
+    Set<string | number>
+  >();
   worker: Worker;
 
   constructor(worker: Worker) {
@@ -131,7 +131,7 @@ export class MainEventEmitter<
    * @param callback 可选的回调函数
    */
   postMessage<A extends keyof C, T extends keyof W = keyof W>(
-    channel: T | string,
+    channel: T | string | number,
     data: W[T],
     arrayBuffer?: ArrayBuffer,
     callback?: (data: C[A], arrayBuffer?: ArrayBuffer) => void
@@ -171,7 +171,7 @@ export class MainEventEmitter<
    * @returns
    */
   onmessageOnce<T extends keyof W>(
-    channel: T | string,
+    channel: T | string | number,
     handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void
   ): this {
     const _handle = (ev: W[T], arrayBuffer?: ArrayBuffer) => {
@@ -189,7 +189,7 @@ export class MainEventEmitter<
    * @returns
    */
   clearOnmessage<T extends keyof W>(
-    channel: T | string,
+    channel: T | string | number,
     handler: (data: W[T]) => void
   ) {
     const handlers = this.workerListeners.get(channel);
@@ -206,7 +206,7 @@ export class MainEventEmitter<
    * @param handler
    */
   onmessage<T extends keyof W>(
-    channel: T | string,
+    channel: T | string | number,
     handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void
   ) {
     if (this.workerListeners.has(channel)) {
@@ -243,7 +243,7 @@ export class MainEventEmitter<
     };
   }
 
-  clearOnmessageAll<T extends keyof W>(channel?: T | string) {
+  clearOnmessageAll<T extends keyof W>(channel?: T | string | number) {
     if (channel) {
       this.workerListeners.delete(channel);
     } else {
@@ -259,11 +259,7 @@ export class MainEventEmitter<
         }
       }
     } else {
-      this.callbackUniqueIds.forEach((uniqueIds) => {
-        for (const uniqueId of uniqueIds) {
-          this.clearOnmessageAll(uniqueId);
-        }
-      });
+      this.callbackUniqueIds.clear();
     }
   }
 }

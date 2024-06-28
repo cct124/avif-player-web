@@ -1,4 +1,4 @@
-import { AvifPlayerSourceType } from "../types";
+import { AID_TYPE, AvifPlayerSourceType } from "../types";
 import {
   WorkerAvifDecoderMessageChannel,
   WorkerAvifDecoderEventMap,
@@ -20,14 +20,15 @@ export class LibavifDecoder extends MainEventEmitter<
    */
   streaming = true;
   decoderNthImage: (
-    sourceId: string,
+    id: AID_TYPE,
     frameIndex: number
   ) => Promise<DecoderImageData>;
 
   /**
    *
    * @param url worker连接
-   * @param sourceId 唯一资源标识
+   * @param sources 资源对象
+   * @param streaming 是否启用数据流解码
    */
   constructor(
     worker: Worker,
@@ -36,8 +37,8 @@ export class LibavifDecoder extends MainEventEmitter<
   ) {
     super(worker);
     this.streaming = streaming;
-    this.sources = sources.map(({ sourceId }) => ({
-      sourceId,
+    this.sources = sources.map(({ id }) => ({
+      id,
       decoderImageComplete: false,
       decoderParseComplete: false,
       imageCount: 0,
@@ -52,8 +53,8 @@ export class LibavifDecoder extends MainEventEmitter<
     });
     this.onmessage(
       WorkerAvifDecoderMessageChannel.decodingComplete,
-      ({ sourceId }) => {
-        this.findSource(sourceId).decoderImageComplete = true;
+      ({ id }) => {
+        this.findSource(id).decoderImageComplete = true;
       }
     );
     this.onmessage(WorkerAvifDecoderMessageChannel.error, (error) => {
@@ -72,13 +73,12 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param arrayBuffer
    * @returns
    */
-  async decoderParse(sourceId: string, arrayBuffer?: ArrayBuffer) {
-    const source = this.findSource(sourceId);
-    if (!source.decoderParseComplete) {
-      await this.avifDecoderParse(sourceId, arrayBuffer);
+  async decoderParse(id: AID_TYPE, arrayBuffer?: ArrayBuffer) {
+    try {
+      await this.avifDecoderParse(id, arrayBuffer);
       return true;
-    } else {
-      return true;
+    } catch (error) {
+      return Promise.reject(error);
     }
   }
 
@@ -89,7 +89,7 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param frameIndex
    * @returns
    */
-  decoderStreamingNthImage(sourceId: string, frameIndex: number) {
+  decoderStreamingNthImage(id: AID_TYPE, frameIndex: number) {
     // console.log("---frameIndex---", frameIndex);
 
     return new Promise<DecoderImageData>((resolve, reject) => {
@@ -97,7 +97,7 @@ export class LibavifDecoder extends MainEventEmitter<
         this.postMessage<WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage>(
           WorkerAvifDecoderMessageChannel.avifDecoderStreamingNthImage,
           {
-            sourceId,
+            id,
             frameIndex,
           },
           undefined,
@@ -122,13 +122,13 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param frameIndex
    * @returns
    */
-  decoderResultNthImage(sourceId: string, frameIndex: number) {
+  decoderResultNthImage(id: AID_TYPE, frameIndex: number) {
     return new Promise<DecoderImageData>((resolve, reject) => {
       try {
         this.postMessage<WorkerAvifDecoderMessageChannel.avifDecoderNthImage>(
           WorkerAvifDecoderMessageChannel.avifDecoderNthImage,
           {
-            sourceId,
+            id,
             frameIndex,
           },
           undefined,
@@ -151,18 +151,21 @@ export class LibavifDecoder extends MainEventEmitter<
    * 发送图像数据到Worker进行解码
    * @param arrayBuffer
    */
-  avifDecoderParse(sourceId: string, arrayBuffer?: ArrayBuffer) {
+  avifDecoderParse(id: AID_TYPE, arrayBuffer?: ArrayBuffer) {
     return new Promise((resolve, reject) => {
       try {
-        const source = this.findSource(sourceId);
+        const source = this.findSource(id);
+        this.onmessageOnce(WorkerAvifDecoderMessageChannel.error, (error) => {
+          reject(error);
+        });
         if (this.streaming) {
           this.postMessage<WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse>(
             WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse,
             {
-              sourceId,
+              id,
             },
             undefined,
-            ({ imageCount, width, height, sourceId }) => {
+            ({ imageCount, width, height, id }) => {
               source.imageCount = imageCount;
               source.width = width;
               source.height = height;
@@ -173,51 +176,34 @@ export class LibavifDecoder extends MainEventEmitter<
                 imageCount,
                 width,
                 height,
-                sourceId,
+                id,
               });
               resolve(source.decoderImageComplete);
             }
           );
         } else {
-          this.onmessageOnce(
-            WorkerAvifDecoderMessageChannel.avifDecoderParseComplete,
-            ({ imageCount, width, height, sourceId }) => {
+          this.postMessage<WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse>(
+            WorkerAvifDecoderMessageChannel.avifDecoderParse,
+            {
+              id,
+            },
+            arrayBuffer,
+            ({ imageCount, width, height, id }) => {
               source.imageCount = imageCount;
               source.width = width;
               source.height = height;
+              this.width = width;
+              this.height = height;
               source.decoderParseComplete = true;
               this.emit(DecoderChannel.avifParse, {
                 imageCount,
                 width,
                 height,
-                sourceId,
+                id,
               });
               resolve(source.decoderImageComplete);
             }
           );
-          this.onmessageOnce(WorkerAvifDecoderMessageChannel.error, (error) => {
-            reject(error);
-          });
-          if (this.streaming) {
-            this.postMessage(
-              WorkerAvifDecoderMessageChannel.avifDecodeStreamingParse,
-              {
-                sourceId,
-              },
-              null,
-              (data) => {
-                data;
-              }
-            );
-          } else {
-            this.postMessage(
-              WorkerAvifDecoderMessageChannel.avifDecoderParse,
-              {
-                sourceId,
-              },
-              arrayBuffer
-            );
-          }
         }
       } catch (error) {
         reject(error);
@@ -225,9 +211,9 @@ export class LibavifDecoder extends MainEventEmitter<
     });
   }
 
-  avifDecoderAllImage(sourceId: string) {
+  avifDecoderAllImage(id: AID_TYPE) {
     this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderImage, {
-      sourceId,
+      id,
     });
     this.onmessageOnce(
       WorkerAvifDecoderMessageChannel.avifDecoderNextImage,
@@ -250,13 +236,16 @@ export class LibavifDecoder extends MainEventEmitter<
   destroy() {
     this.clearAll();
     this.clearOnmessageAll();
+    this.clearCallback();
     this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderDestroy, {});
     this.worker = null;
     this.emit(DecoderChannel.destroy, {});
+    console.log(this);
+    
   }
 
   streamingArrayBuffer(
-    sourceId: string,
+    id: AID_TYPE,
     done: boolean,
     arrayBuffer: Uint8Array,
     size: number
@@ -266,7 +255,7 @@ export class LibavifDecoder extends MainEventEmitter<
         this.postMessage<WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer>(
           WorkerAvifDecoderMessageChannel.avifStreamingArrayBuffer,
           {
-            sourceId,
+            id,
             size,
             done,
           },
