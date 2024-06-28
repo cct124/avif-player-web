@@ -1,3 +1,5 @@
+import { AID_TYPE } from ".";
+
 export interface Loop {
   /**
    * 循环播放次数，0表示无限循环播放，默认1
@@ -57,6 +59,10 @@ export interface AvifPlayerWebOptions extends Loop {
    * 是否启用边下边播功能，默认开启
    */
   enableStreaming?: boolean;
+  /**
+   * 播放的动画id，默认是`source`数组第一个动画id
+   */
+  playingId?: AID_TYPE;
 }
 
 export enum AvifPlayerWebMessageType {}

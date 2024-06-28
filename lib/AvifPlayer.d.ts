@@ -1,7 +1,7 @@
 import { AvifPlayerWebOptions, Source } from "./types/AvifPlayerWebType";
 import { LibavifDecoder } from "./Decoder/LibavifDecoder";
 import { Observer } from "./Observer";
-import { AvifPlayerWebEventMap, AvifPlayerSourceType, PlayOptions } from "./types";
+import { AvifPlayerWebEventMap, AvifPlayerSourceType, PlayOptions, AID_TYPE } from "./types";
 type Sources = string | ArrayBuffer | Source[];
 export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     /**
@@ -15,9 +15,9 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     sources: AvifPlayerSourceType[];
     libavifDecoder: LibavifDecoder;
     /**
-     * 当前播放的资源id，默认是sources资源数组的第一个
+     * 当前播放的动画id
      */
-    playSourceId: string;
+    playingId: AID_TYPE;
     constructor(url: string | ArrayBuffer | AvifPlayerWebOptions, canvas?: string | HTMLCanvasElement | AvifPlayerWebOptions, option?: AvifPlayerWebOptions);
     /**
      * 合并默认配置项
@@ -26,14 +26,8 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
      */
     mixinOptions(options: AvifPlayerWebOptions): AvifPlayerWebOptions;
     initialLibavifDecoder(reset?: boolean): Promise<LibavifDecoder>;
-    /**
-     * 切换播放的资源
-     * @param id 动画id
-     * @param index 帧索引
-     */
-    switch(id: number | string, index?: number): void;
     pause(index?: number): void;
-    play(index?: number | PlayOptions): Promise<void>;
+    play(play?: number | PlayOptions): Promise<void>;
     private decoderParsePlay;
     private streamingArrayBuffer;
     /**
@@ -49,11 +43,6 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
      * @param option
      */
     private checkConstructor;
-    /**
-     * 判断是否支持av1视频编码
-     * @returns
-     */
-    hasAv1Support(): boolean;
     setCanvasSize(): void;
     sourcesHandle(sources: Sources): AvifPlayerSourceType[];
     /**
@@ -61,8 +50,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
      * @param id
      * @returns
      */
-    animationIDfindSource(id: string | number): AvifPlayerSourceType;
-    sourceIDfindSource(sid: string): AvifPlayerSourceType;
+    findSource(id: AID_TYPE): AvifPlayerSourceType;
     /**
      * 销毁解码器`Worker`线程
      *

@@ -1,7 +1,7 @@
 import AvifPlayerWeb from "../AvifPlayer";
 import { Decoder } from "../Decoder";
 import { Observer } from "../Observer";
-import { AvifPlayerSourceType } from "../types";
+import { AID_TYPE, AvifPlayerSourceType } from "../types";
 import { DecoderImageData, DecoderEventMap } from "../types/WorkerMessageType";
 import { PlayEventMap, PlayOptions } from "./type";
 export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> extends Observer<PlayEventMap> {
@@ -25,7 +25,7 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
     pts: number;
     frameIndex: number;
     framesPerformanceDelay: number[];
-    update: (sourceId: string, diff: number) => void;
+    update: (id: AID_TYPE, diff: number) => void;
     /**
      * 当前调用栈缓冲大小
      */
@@ -35,28 +35,28 @@ export default class AnimationPlayback<D extends Decoder<DecoderEventMap>> exten
      */
     arrayBuffLength: number;
     /**
-     * 当前正在播放的资源id
+     * 当前播放的动画id
      */
-    playSourceId: string;
+    playingId: AID_TYPE;
     loop: number;
     lastFrameIndex: number;
     render: (arrayBuffer: Uint8ClampedArray, width: number, height: number) => void;
     constructor(AvifPlayerWeb: AvifPlayerWeb, canvas: HTMLCanvasElement, decoder: D, option?: PlayOptions);
     setDecoder(decoder: D): void;
     initRender(): void;
-    play(avifPlayerSource: AvifPlayerSourceType, index?: number): void;
+    play(avifPlayerSource: AvifPlayerSourceType, index?: number): AID_TYPE;
     resetFramesStatus(imageCount: number): void;
     /**
      * 暂停播放
      */
-    pause(sid: string, index?: number): void;
+    pause(id: AID_TYPE, index?: number): void;
     stopNthImageCallback(): void;
     setPlayId(source: AvifPlayerSourceType): void;
     switchPlayId(source: AvifPlayerSourceType): void;
-    updateAsync(sourceId: string, diff?: number): Promise<void>;
+    updateAsync(id: string, diff?: number): Promise<void>;
     checkPlayEnd(index: number, id: string | number): void;
-    updateSync(sourceId: string): Promise<void>;
-    decoderNthImageArrayBuff(sourceId: string, index: number): Promise<DecoderImageData>;
+    updateSync(id: string): Promise<void>;
+    decoderNthImageArrayBuff(id: string, index: number): Promise<DecoderImageData>;
     updateArrayBuff(): Promise<boolean>;
     awaitNextFrameDecode(decoder: D): Promise<unknown>;
     webglInit(gl: WebGLRenderingContext): void;

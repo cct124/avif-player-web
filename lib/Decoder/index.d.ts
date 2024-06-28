@@ -1,23 +1,20 @@
 import { Observer } from "../Observer";
-import { DecoderEventMap, DecoderImageData } from "../types/WorkerMessageType";
+import { AID_TYPE } from "../types";
+import { DecoderEventMap, DecoderImageData, ResourceSymbol } from "../types/WorkerMessageType";
 declare abstract class DecoderAbstract {
     /**
      * 进行解码操作
      * @param arrayBuffer
      */
-    abstract decoderParse(sourceId: string, arrayBuffer: ArrayBuffer): Promise<boolean>;
-    abstract decoderNthImage(sourceId: string, frameIndex: number): Promise<DecoderImageData>;
+    abstract decoderParse(id: AID_TYPE, arrayBuffer: ArrayBuffer): Promise<boolean>;
+    abstract decoderNthImage(id: AID_TYPE, frameIndex: number): Promise<DecoderImageData>;
     /**
      * 查找资源对象
-     * @param sourceId
+     * @param id
      */
-    abstract findSource(sourceId: string): SOURCE;
+    abstract findSource(id: AID_TYPE): SourceType;
 }
-export interface SOURCE {
-    /**
-     * 唯一资源标识
-     */
-    sourceId: string;
+export interface SourceType extends ResourceSymbol {
     /**
      * 所有帧已成功解码完成
      */
@@ -48,7 +45,7 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      * 解码器版本
      */
     decoderVersion: string;
-    sources: SOURCE[];
+    sources: SourceType[];
     /**
      * 图像宽度
      */
@@ -58,15 +55,15 @@ export declare class Decoder<M> extends Observer<M> implements DecoderAbstract {
      */
     height: number;
     constructor();
-    findSource(sourceId: string): SOURCE;
-    decoderParse(sourceId: string, arrayBuffer: ArrayBuffer): Promise<boolean>;
-    decoderNthImage(sourceId: string, frameIndex: number): Promise<DecoderImageData>;
-    avifDecoderAllImage(sourceId: string): void;
+    findSource(id: AID_TYPE): SourceType;
+    decoderParse(id: AID_TYPE, arrayBuffer: ArrayBuffer): Promise<boolean>;
+    decoderNthImage(id: AID_TYPE, frameIndex: number): Promise<DecoderImageData>;
+    avifDecoderAllImage(id: AID_TYPE): void;
     /**
      * 删除所有`NthImage`解码回调
      */
     clearNthImageCallback(): void;
-    streamingArrayBuffer(sourceId: string, done: boolean, arrayBuffer: Uint8Array, size: number): void;
+    streamingArrayBuffer(id: string, done: boolean, arrayBuffer: Uint8Array, size: number): void;
 }
 export declare class MainEventEmitter<W, C, M extends DecoderEventMap> extends Decoder<M> {
     private workerListeners;
@@ -80,30 +77,30 @@ export declare class MainEventEmitter<W, C, M extends DecoderEventMap> extends D
      * @param arrayBuffer
      * @param callback 可选的回调函数
      */
-    postMessage<A extends keyof C, T extends keyof W = keyof W>(channel: T | string, data: W[T], arrayBuffer?: ArrayBuffer, callback?: (data: C[A], arrayBuffer?: ArrayBuffer) => void): void;
+    postMessage<A extends keyof C, T extends keyof W = keyof W>(channel: T | string | number, data: W[T], arrayBuffer?: ArrayBuffer, callback?: (data: C[A], arrayBuffer?: ArrayBuffer) => void): void;
     /**
      * 为给定的Worker线程事件添加一次性侦听器。
      * @param channel 频道
      * @param handler 事件回调
      * @returns
      */
-    onmessageOnce<T extends keyof W>(channel: T | string, handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void): this;
+    onmessageOnce<T extends keyof W>(channel: T | string | number, handler: (this: this, ev: W[T], arrayBuffer?: ArrayBuffer) => void): this;
     /**
      * 清除Worker线程事件
      * @param channel
      * @param handler
      * @returns
      */
-    clearOnmessage<T extends keyof W>(channel: T | string, handler: (data: W[T]) => void): boolean;
+    clearOnmessage<T extends keyof W>(channel: T | string | number, handler: (data: W[T]) => void): boolean;
     /**
      * 监听Worker线程发送的事件
      * @param channel
      * @param handler
      */
-    onmessage<T extends keyof W>(channel: T | string, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
+    onmessage<T extends keyof W>(channel: T | string | number, handler: (data: W[T], arrayBuffer?: ArrayBuffer) => void): void;
     private listenOnmessage;
     setDecoder(worker: Worker): void;
-    clearOnmessageAll<T extends keyof W>(channel?: T | string): void;
+    clearOnmessageAll<T extends keyof W>(channel?: T | string | number): void;
     clearCallback<T extends keyof W>(channel?: T): void;
 }
 export {};
