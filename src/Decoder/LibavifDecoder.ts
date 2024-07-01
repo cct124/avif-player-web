@@ -240,8 +240,6 @@ export class LibavifDecoder extends MainEventEmitter<
     this.postMessage(WorkerAvifDecoderMessageChannel.avifDecoderDestroy, {});
     this.worker = null;
     this.emit(DecoderChannel.destroy, {});
-    console.log(this);
-    
   }
 
   streamingArrayBuffer(
