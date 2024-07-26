@@ -1,6 +1,6 @@
 # avif-player-web
 
-使用[Webassembly][Webassembly]播放[AVIF][AVIF]动画文件。单帧的图像也是支持的，但是因为每个图像都会创建一个解码器和[Worker][Worker]线程，而且解码时间过长，所以意义不大。这个库使用了[Emscripten][Emscripten]编译[Libavif](https://github.com/AOMediaCodec/libavif)为[Webassembly][Webassembly]从而提供向后兼容的AVIF文件的支持
+使用[Webassembly][Webassembly]播放[AVIF][AVIF]动画文件。单帧的图像也是支持的，但是因为每个图像都会创建一个解码器和[Worker][Worker]线程，而且解码时间过长，所以意义不大。这个库使用了[Emscripten][Emscripten]编译[Libavif][Libavif]为[Webassembly][Webassembly]从而提供向后兼容的AVIF文件的支持。如何编译[WASM][Webassembly]版的[Libavif][Libavif]查看这个项目[libavif-decode-wasm][libavif-decode-wasm]
 
 只支持`8bit`色深文件，每个AvifPlayerWeb对象创建播放时都会新建一个[Worker][Worker]线程
 
@@ -194,3 +194,5 @@ export interface AvifPlayerWebOptions {
 [IntraPrediction]: https://en.wikipedia.org/wiki/Intra-frame_coding "IntraPrediction"
 [APNG]: https://en.wikipedia.org/wiki/APNG "APNG"
 [Pinterest]: https://www.pinterest.es/pin/42221315251843026/ "Pinterest"
+[Libavif]: https://github.com/AOMediaCodec/libavif "Libavif"
+[libavif-decode-wasm]: https://github.com/cct124/libavif-decode-wasm "libavif-decode-wasm"
