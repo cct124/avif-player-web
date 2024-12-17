@@ -198,10 +198,31 @@ Safari ≥ 16.4 (March 2023) and
 
 Node.js ≥ 16.4 (June 2021).
 
+// 安装[wasm-feature-detect][wasmFeatureDetect]检测Webassemblt是否支持SIMD
+
 ```js
-// 检测Webassemblt是否支持SIMD
-WebAssembly.validate(
-  new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
+npm install wasm-feature-detect
+```
+
+兼容示例
+
+[不支持SIMD的解码器文件，点这里][nonsupportSIMD]
+
+```typescript
+import { simd } from "wasm-feature-detect";
+
+let decoderUrl = "";
+if (!(await simd())) {
+  // 兼容性版本，未启用SIMD特性的解码器
+  decoderUrl = "http://localhost:8082/avifDecodeFileWeb.min.js";
+}
+avifPlayerWeb = new AvifPlayerWeb.AvifPlayer(
+  "http://localhost:8082/file.avif",
+  document.getElementById("canvas"),
+  {
+    async: true,
+    decoderUrl,
+  }
 );
 ```
 
@@ -215,3 +236,5 @@ WebAssembly.validate(
 [IntraPrediction]: https://en.wikipedia.org/wiki/Intra-frame_coding "IntraPrediction"
 [APNG]: https://en.wikipedia.org/wiki/APNG "APNG"
 [Pinterest]: https://www.pinterest.es/pin/42221315251843026/ "Pinterest"
+[nonsupportSIMD]: https://github.com/cct124/libavif-decode-wasm/blob/main/back/avifDecodeFileWeb.min.js
+[wasmFeatureDetect]: https://github.com/GoogleChromeLabs/wasm-feature-detect
