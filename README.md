@@ -184,6 +184,27 @@ export interface AvifPlayerWebOptions {
 
 ![alt text](doc/Libavif.png)
 
+## 兼容问题
+
+在`0.3.2`版本中加入了SIMD优化支持，支持此特性的浏览器参考下面
+
+WebAssembly SIMD is supported by
+
+Chrome ≥ 91 (May 2021),
+
+Firefox ≥ 89 (June 2021),
+
+Safari ≥ 16.4 (March 2023) and
+
+Node.js ≥ 16.4 (June 2021).
+
+```js
+// 检测Webassemblt是否支持SIMD
+WebAssembly.validate(
+  new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
+);
+```
+
 [Emscripten]: https://emscripten.org/ "Emscripten"
 [Webassembly]: https://webassembly.org "Webassembly"
 [AVIF]: https://en.wikipedia.org/wiki/AVIF "AVIF"

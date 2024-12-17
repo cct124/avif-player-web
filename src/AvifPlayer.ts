@@ -1,6 +1,6 @@
 import WebpackWorker from "./Worker/Libavif.worker";
 import { AvifPlayerWebOptions, Source } from "./types/AvifPlayerWebType";
-import { deepMixins, isNumeric } from "./utils";
+import { deepMixins, fetchText, isNumeric } from "./utils";
 import AnimationPlayback from "./AnimationPlayback";
 import {
   DecoderChannel,
@@ -35,39 +35,53 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
    * 当前播放的动画id
    */
   playingId: AID_TYPE;
+  decoderStr: string;
 
   constructor(
     url: string | ArrayBuffer | AvifPlayerWebOptions,
     canvas?: string | HTMLCanvasElement | AvifPlayerWebOptions,
     option: AvifPlayerWebOptions = {}
   ) {
-    super();
-    if (typeof canvas === "string" || canvas instanceof HTMLCanvasElement) {
-      option.canvas = canvas;
-    } else if (canvas instanceof Object) {
-      option = canvas;
-    }
-    if (typeof url === "string" || url instanceof ArrayBuffer) {
-      this.option = this.mixinOptions(option);
-      this.sources = this.sourcesHandle(url);
-    } else {
-      option = url as AvifPlayerWebOptions;
-      this.option = this.mixinOptions(option);
-      this.sources = this.sourcesHandle(this.option.source);
-    }
-    this.option.playingId =
-      this.option.playingId === undefined
-        ? this.sources[0].id
-        : this.option.playingId;
+    try {
+      super();
+      if (typeof canvas === "string" || canvas instanceof HTMLCanvasElement) {
+        option.canvas = canvas;
+      } else if (canvas instanceof Object) {
+        option = canvas;
+      }
+      if (typeof url === "string" || url instanceof ArrayBuffer) {
+        this.option = this.mixinOptions(option);
+        this.sources = this.sourcesHandle(url);
+      } else {
+        option = url as AvifPlayerWebOptions;
+        this.option = this.mixinOptions(option);
+        this.sources = this.sourcesHandle(this.option.source);
+      }
+      this.option.playingId =
+        this.option.playingId === undefined
+          ? this.sources[0].id
+          : this.option.playingId;
 
-    // 判断是元素id还是DOM对象
-    if (typeof this.option.canvas === "string") {
-      this.option.canvas = document.getElementById(
-        this.option.canvas
-      ) as HTMLCanvasElement;
+      // 判断是元素id还是DOM对象
+      if (typeof this.option.canvas === "string") {
+        this.option.canvas = document.getElementById(
+          this.option.canvas
+        ) as HTMLCanvasElement;
+      }
+      this.decoderStr = this.option.decoderStr;
+
+      this.checkConstructor(this.option);
+      this.initail();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async initail() {
+    if (this.option.decoderUrl) {
+      this.decoderStr = await fetchText(this.option.decoderUrl);
     }
 
-    this.checkConstructor(this.option);
     if (this.option.autoplay) {
       this.initialLibavifDecoder().then(() => {
         this.decoderParsePlay(this.option.playingId).then(() => {
@@ -101,13 +115,19 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
     } as AvifPlayerWebOptions);
   }
 
+  /**
+   *
+   * @param reset 初始化解码器线程
+   * @returns
+   */
   initialLibavifDecoder(reset?: boolean) {
-    return new Promise<LibavifDecoder>((resolve, reject) => {
+    return new Promise<LibavifDecoder>(async (resolve, reject) => {
       try {
         this.libavifDecoder = new LibavifDecoder(
           new WebpackWorker() as unknown as Worker,
           this.sources,
-          this.option.enableStreaming
+          this.option.enableStreaming,
+          this.decoderStr
         );
         if (reset && this.animationPlayback) {
           this.animationPlayback.setDecoder(this.libavifDecoder);
@@ -126,7 +146,7 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
         }
 
         this.libavifDecoder.onmessageOnce(
-          WorkerAvifDecoderMessageChannel.initial,
+          WorkerAvifDecoderMessageChannel.initialComplete,
           () => {
             resolve(this.libavifDecoder);
           }

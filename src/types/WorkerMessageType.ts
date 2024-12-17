@@ -2,10 +2,11 @@ import { AID_TYPE, AnimationID } from "./index";
 
 export enum WorkerAvifDecoderMessageChannel {
   error = 0,
+
   /**
    * worker解码器初始化完成
    */
-  initial = 1,
+  initialComplete = 1,
   /**
    * 提交Uint8Array数据到worker线程解码
    */
@@ -43,6 +44,10 @@ export enum WorkerAvifDecoderMessageChannel {
    */
   avifDecodeStreamingParse = 12,
   avifDecoderStreamingNthImage = 13,
+  /**
+   * worker解码器初始化
+   */
+  initialDecode = 14,
 }
 export enum DecoderChannel {
   /**
@@ -190,10 +195,15 @@ export interface DecodingComplete extends ResourceSymbol {}
 
 export interface AvifDecodeStreamingParse extends ResourceSymbol {}
 
+export interface Initial {
+  decoderStr?: string;
+}
+
 export interface WorkerAvifDecoderEventMap {
+  [WorkerAvifDecoderMessageChannel.initialDecode]: Initial;
   [WorkerAvifDecoderMessageChannel.avifDecoderParse]: AvifDecoderParseData;
   [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
-  [WorkerAvifDecoderMessageChannel.initial]: {};
+  [WorkerAvifDecoderMessageChannel.initialComplete]: {};
   [WorkerAvifDecoderMessageChannel.decodingComplete]: DecodingComplete;
   [WorkerAvifDecoderMessageChannel.error]: Error;
   [WorkerAvifDecoderMessageChannel.avifDecoderImage]: ResourceSymbol;

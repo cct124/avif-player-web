@@ -35,3 +35,4 @@ export declare function isNumeric(num: number): boolean;
  * @returns
  */
 export declare function generateQuickUniqueId(): number;
+export declare function fetchText(uri: string): Promise<string>;

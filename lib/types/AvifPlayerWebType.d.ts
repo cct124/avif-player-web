@@ -60,6 +60,14 @@ export interface AvifPlayerWebOptions extends Loop {
      * 播放的动画id，默认是`source`数组第一个动画id
      */
     playingId?: AID_TYPE;
+    /**
+     * 解码器执行代码
+     */
+    decoderStr?: string;
+    /**
+     * 解码器网络路径
+     */
+    decoderUrl?: string;
 }
 export declare enum AvifPlayerWebMessageType {
 }

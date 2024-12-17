@@ -29,11 +29,13 @@ export class LibavifDecoder extends MainEventEmitter<
    * @param url worker连接
    * @param sources 资源对象
    * @param streaming 是否启用数据流解码
+   * @param decoderStr 解码器执行代码
    */
   constructor(
     worker: Worker,
     sources: AvifPlayerSourceType[],
-    streaming?: boolean
+    streaming?: boolean,
+    decoderStr?: string
   ) {
     super(worker);
     this.streaming = streaming;
@@ -48,7 +50,7 @@ export class LibavifDecoder extends MainEventEmitter<
     this.decoderNthImage = this.streaming
       ? this.decoderStreamingNthImage
       : this.decoderResultNthImage;
-    this.onmessage(WorkerAvifDecoderMessageChannel.initial, () => {
+    this.onmessage(WorkerAvifDecoderMessageChannel.initialComplete, () => {
       this.decoderInitial = true;
     });
     this.onmessage(
@@ -66,6 +68,9 @@ export class LibavifDecoder extends MainEventEmitter<
         console.log(data);
       }
     );
+    this.postMessage(WorkerAvifDecoderMessageChannel.initialDecode, {
+      decoderStr,
+    });
   }
 
   /**
