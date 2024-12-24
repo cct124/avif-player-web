@@ -184,6 +184,48 @@ export interface AvifPlayerWebOptions {
 
 ![alt text](doc/Libavif.png)
 
+## 兼容问题
+
+在`0.3.2`版本中加入了SIMD优化支持，支持此特性的浏览器参考下面
+
+WebAssembly SIMD is supported by
+
+Chrome ≥ 91 (May 2021),
+
+Firefox ≥ 89 (June 2021),
+
+Safari ≥ 16.4 (March 2023) and
+
+Node.js ≥ 16.4 (June 2021).
+
+// 安装[wasm-feature-detect][wasmFeatureDetect]检测Webassemblt是否支持SIMD
+
+```js
+npm install wasm-feature-detect
+```
+
+兼容示例
+
+[不支持SIMD的解码器文件，点这里][nonsupportSIMD]
+
+```typescript
+import { simd } from "wasm-feature-detect";
+
+let decoderUrl = "";
+if (!(await simd())) {
+  // 兼容性版本，未启用SIMD特性的解码器
+  decoderUrl = "http://localhost:8082/avifDecodeFileWeb.min.js";
+}
+avifPlayerWeb = new AvifPlayerWeb.AvifPlayer(
+  "http://localhost:8082/file.avif",
+  document.getElementById("canvas"),
+  {
+    async: true,
+    decoderUrl,
+  }
+);
+```
+
 [Emscripten]: https://emscripten.org/ "Emscripten"
 [Webassembly]: https://webassembly.org "Webassembly"
 [AVIF]: https://en.wikipedia.org/wiki/AVIF "AVIF"
@@ -194,5 +236,7 @@ export interface AvifPlayerWebOptions {
 [IntraPrediction]: https://en.wikipedia.org/wiki/Intra-frame_coding "IntraPrediction"
 [APNG]: https://en.wikipedia.org/wiki/APNG "APNG"
 [Pinterest]: https://www.pinterest.es/pin/42221315251843026/ "Pinterest"
+[nonsupportSIMD]: https://github.com/cct124/libavif-decode-wasm/blob/main/back/avifDecodeFileWeb.min.js
+[wasmFeatureDetect]: https://github.com/GoogleChromeLabs/wasm-feature-detect
 [Libavif]: https://github.com/AOMediaCodec/libavif "Libavif"
 [libavif-decode-wasm]: https://github.com/cct124/libavif-decode-wasm "libavif-decode-wasm"

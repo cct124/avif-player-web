@@ -4,7 +4,7 @@ export declare enum WorkerAvifDecoderMessageChannel {
     /**
      * worker解码器初始化完成
      */
-    initial = 1,
+    initialComplete = 1,
     /**
      * 提交Uint8Array数据到worker线程解码
      */
@@ -41,7 +41,11 @@ export declare enum WorkerAvifDecoderMessageChannel {
      * 解析AVIF文件数据流
      */
     avifDecodeStreamingParse = 12,
-    avifDecoderStreamingNthImage = 13
+    avifDecoderStreamingNthImage = 13,
+    /**
+     * worker解码器初始化
+     */
+    initialDecode = 14
 }
 export declare enum DecoderChannel {
     /**
@@ -177,10 +181,14 @@ export interface DecodingComplete extends ResourceSymbol {
 }
 export interface AvifDecodeStreamingParse extends ResourceSymbol {
 }
+export interface Initial {
+    decoderStr?: string;
+}
 export interface WorkerAvifDecoderEventMap {
+    [WorkerAvifDecoderMessageChannel.initialDecode]: Initial;
     [WorkerAvifDecoderMessageChannel.avifDecoderParse]: AvifDecoderParseData;
     [WorkerAvifDecoderMessageChannel.avifDecoderNextImage]: AvifDecoderNextImageData;
-    [WorkerAvifDecoderMessageChannel.initial]: {};
+    [WorkerAvifDecoderMessageChannel.initialComplete]: {};
     [WorkerAvifDecoderMessageChannel.decodingComplete]: DecodingComplete;
     [WorkerAvifDecoderMessageChannel.error]: Error;
     [WorkerAvifDecoderMessageChannel.avifDecoderImage]: ResourceSymbol;

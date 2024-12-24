@@ -18,13 +18,20 @@ export default class AvifPlayer extends Observer<AvifPlayerWebEventMap> {
      * 当前播放的动画id
      */
     playingId: AID_TYPE;
+    decoderStr: string;
     constructor(url: string | ArrayBuffer | AvifPlayerWebOptions, canvas?: string | HTMLCanvasElement | AvifPlayerWebOptions, option?: AvifPlayerWebOptions);
+    initail(): Promise<void>;
     /**
      * 合并默认配置项
      * @param options
      * @returns
      */
     mixinOptions(options: AvifPlayerWebOptions): AvifPlayerWebOptions;
+    /**
+     *
+     * @param reset 初始化解码器线程
+     * @returns
+     */
     initialLibavifDecoder(reset?: boolean): Promise<LibavifDecoder>;
     pause(index?: number): void;
     play(play?: number | PlayOptions): Promise<void>;

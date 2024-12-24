@@ -12,8 +12,9 @@ export declare class LibavifDecoder extends MainEventEmitter<WorkerAvifDecoderEv
      * @param url worker连接
      * @param sources 资源对象
      * @param streaming 是否启用数据流解码
+     * @param decoderStr 解码器执行代码
      */
-    constructor(worker: Worker, sources: AvifPlayerSourceType[], streaming?: boolean);
+    constructor(worker: Worker, sources: AvifPlayerSourceType[], streaming?: boolean, decoderStr?: string);
     /**
      * 解析&解码操作
      * @param arrayBuffer

@@ -36,12 +36,21 @@ export default class LibavifWorker extends WorkerEventEmitter<
   decoderPtr: number;
   constructor() {
     super();
-    this.initialAvifDecodeFileWeb();
+    this.onmessage(
+      WorkerAvifDecoderMessageChannel.initialDecode,
+      async ({ decoderStr }) => {
+        if (decoderStr) {
+          this.AvifDecodeFileWeb = await initialDecode(decoderStr);
+        } else {
+          this.AvifDecodeFileWeb = await avifDecodeFileWeb();
+        }
+        this.initialAvifDecodeFileWeb();
+      }
+    );
   }
 
   async initialAvifDecodeFileWeb() {
     try {
-      this.AvifDecodeFileWeb = await avifDecodeFileWeb();
       this.onmessage(WorkerAvifDecoderMessageChannel.avifDecoderDestroy, () => {
         self.close();
       });
@@ -146,7 +155,7 @@ export default class LibavifWorker extends WorkerEventEmitter<
           }
         }
       );
-      this.postMessage(WorkerAvifDecoderMessageChannel.initial, {});
+      this.postMessage(WorkerAvifDecoderMessageChannel.initialComplete, {});
     } catch (error) {
       throw error;
     }
@@ -197,6 +206,11 @@ export default class LibavifWorker extends WorkerEventEmitter<
     }
     return libavif;
   }
+}
+
+async function initialDecode(script: string) {
+  const dynamicFunction = new Function(script);
+  return await dynamicFunction()();
 }
 
 new LibavifWorker();

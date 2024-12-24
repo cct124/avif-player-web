@@ -81,3 +81,8 @@ export function generateQuickUniqueId() {
   const uniqueId = performance.now() + Math.random();
   return uniqueId;
 }
+
+export async function fetchText(uri: string) {
+  const response = await fetch(uri);
+  return await response.text();
+}
