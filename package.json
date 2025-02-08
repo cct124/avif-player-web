@@ -1,6 +1,6 @@
 {
   "name": "avif-player-web",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "使用webassembly软解播放AVIF动画文件",
   "main": "./lib/index.js",
   "browser": "./lib/index.js",
