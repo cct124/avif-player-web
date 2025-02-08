@@ -25,11 +25,11 @@ yarn add avif-player-web
 ```
 
 ```typescript
-import AvifPlayerWeb from "avif-player-web";
+import { AvifPlayer, AvifPlayerWebChannel } from "avif-player-web";
 
 // 每个AvifPlayerWeb对象创建播放时都会新建一个Worker线程
 // 第二个参数可以是配置对象
-const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
+const avifPlayerWeb = new AvifPlayer(
   // 你的avif文件链接
   "www.example.com/animation.avif",
   // 传入canvas DOM对象或id
@@ -43,14 +43,14 @@ const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
 
 avifPlayerWeb.on(
   // AvifPlayerWeb对象的所有事件都在AvifPlayerWebChannel枚举中
-  AvifPlayerWeb.AvifPlayerWebChannel.frameIndexChange,
+  AvifPlayerWebChannel.frameIndexChange,
   (data) => {
     console.log(data.index);
   }
 );
 
 // 播放多个动画
-const avifPlayerWeb = new AvifPlayerWeb.AvifPlayer({
+const avifPlayerWeb = new AvifPlayer({
   source: [
     // 默认播放数组的第一个
     {
@@ -79,9 +79,9 @@ avifPlayerWeb.play({
 ### 显示单帧的图像文件
 
 ```typescript
-import AvifPlayerWeb from "avif-player-web";
+import { AvifPlayer, AvifPlayerWebChannel } from "avif-player-web";
 
-const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
+const avifPlayerWeb = new AvifPlayer(
   "www.example.com/one.avif",
   document.getElementById("canvas"),
   {
@@ -90,7 +90,7 @@ const avifPlayerWeb = new AvifPlayerWeb.AvifPlayerWeb(
   }
 );
 
-avifPlayerWeb.on(AvifPlayerWeb.AvifPlayerWebChannel.end, (data) => {
+avifPlayerWeb.on(AvifPlayerWebChannel.end, (data) => {
   // 播放完成后销毁Worker线程以节省内存
   avifPlayerWeb.destroy();
 });
