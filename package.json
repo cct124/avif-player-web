@@ -1,6 +1,6 @@
 {
   "name": "avif-player-web",
-  "version": "0.4.1",
+  "version": "0.4.0",
   "description": "使用webassembly软解播放AVIF动画文件",
   "main": "./lib/index.js",
   "browser": "./lib/index.js",
@@ -12,7 +12,8 @@
     "watch": "webpack --watch --mode=development",
     "serve": "webpack serve",
     "pub": "npm publish",
-    "patch": "npm version patch"
+    "patch": "npm version patch",
+    "minor": "npm version minor"
   },
   "repository": {
     "type": "git",
